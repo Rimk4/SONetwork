@@ -131,7 +131,7 @@ class P2PNode(threading.Thread):
         print(f"\nP2PNode: Узел {self.node_id} сканирование соседей...")
         self.scan_neighbors()
     
-    def cmd_send(self, target_id: str, *message_parts: str):
+    def cmd_send(self, target_id: str, *message_parts: str) -> None:
         """Отправить сообщение другому узлу"""
         try:
             target_node_id = int(target_id)

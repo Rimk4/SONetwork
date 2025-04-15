@@ -17,7 +17,7 @@ class NetworkSimulator:
     def add_node(self, node: 'P2PNode'):
         self.nodes[node.node_id] = node
     
-    def transmit_frame(self, frame: Frame, sender_id: int, receiver_id: int):
+    def transmit_frame(self, frame: Frame, sender_id: int, receiver_id: int) -> bool:
         """Отправка фрейма с учётом задержек и вероятности потери"""
         if sender_id not in self.nodes or receiver_id not in self.nodes:
             return False
