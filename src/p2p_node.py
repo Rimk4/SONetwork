@@ -8,7 +8,7 @@ import math
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
 from src.models import Position, Frame, NodeState, RoutingEntry
-from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR
+from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR, R
 
 class P2PNode(threading.Thread):
     """Класс, реализующий узел P2P-сети"""
@@ -52,7 +52,7 @@ class P2PNode(threading.Thread):
         self.retry_timeout = 2  # базовый таймаут для повторных передач
         self.max_retries = 3  # максимальное число попыток
         
-        print(f"Создан узел {self.node_id} на позиции ({position.x:.1f}, {position.y:.1f})")
+        print(f"P2PNode: Создан узел {self.node_id} на позиции ({position.x:.1f}, {position.y:.1f})")
 
     def run(self):
         """Основной цикл работы узла"""
@@ -113,9 +113,9 @@ class P2PNode(threading.Thread):
             try:
                 self.commands[command](*args)
             except Exception as e:
-                print(f"Ошибка выполнения команды: {e}")
+                print(f"P2PNode: Ошибка выполнения команды: {e}")
         else:
-            print(f"Неизвестная команда: {command}. Введите 'help' для списка команд.")
+            print(f"P2PNode: Неизвестная команда: {command}. Введите 'help' для списка команд.")
     
     def cmd_info(self):
         """Вывод информации о текущем узле"""
@@ -128,7 +128,7 @@ class P2PNode(threading.Thread):
     
     def cmd_scan(self):
         """Инициировать сканирование соседей"""
-        print(f"\nУзел {self.node_id} инициирует сканирование соседей...")
+        print(f"\nP2PNode: Узел {self.node_id} сканирование соседей...")
         self.scan_neighbors()
     
     def cmd_send(self, target_id: str, *message_parts: str):
@@ -138,11 +138,11 @@ class P2PNode(threading.Thread):
             message = " ".join(message_parts)
             
             if target_node_id == self.node_id:
-                print("Нельзя отправить сообщение самому себе!")
+                print("P2PNode: Нельзя отправить сообщение самому себе!")
                 return
             
             if target_node_id not in self.routing_table:
-                print(f"Узел {target_node_id} не найден в таблице маршрутизации!")
+                print(f"P2PNode: Узел {target_node_id} не найден в таблице маршрутизации!")
                 return
             
             # Создаем фрейм с сообщением
@@ -150,7 +150,7 @@ class P2PNode(threading.Thread):
             next_hop = self.routing_table[target_node_id].next_hop
             
             if self.network.transmit_frame(frame, self.node_id, next_hop):
-                print(f"Сообщение отправлено узлу {target_node_id} через {next_hop}")
+                print(f"P2PNode: Сообщение отправлено узлу {target_node_id} через {next_hop}")
             else:
                 print("Ошибка передачи сообщения!")
         except ValueError:

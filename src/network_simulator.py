@@ -29,7 +29,7 @@ class NetworkSimulator:
         distance = sender.state.position.distance_to(receiver.state.position)
         if distance > R:
             sender.logger.debug(f"Узел {receiver_id} вне зоны покрытия узла {sender_id} (расстояние {distance:.1f} м)")
-            print(f"Узел {receiver_id} вне зоны покрытия узла {sender_id} (расстояние {distance:.1f} м)")
+            print(f"NetworkSimulator: Узел {receiver_id} вне зоны покрытия узла {sender_id} (расстояние {distance:.1f} м)")
             return False
         
         # Вероятность успешной передачи (из отчёта)
@@ -50,6 +50,15 @@ class NetworkSimulator:
         
         # Общее время доставки
         total_delay = transmission_time + propagation_delay
+
+        """
+            Transmission time доминирует при:
+                - Больших размерах данных (например, файлы)
+                - Низком битрейте (например, модемные соединения)
+            Propagation delay становится значимым при:
+                - Очень больших расстояниях (спутниковая связь)
+                - Маленьких фреймах (например, ping-запросы)
+        """
         
         # Запланировать доставку фрейма
         delivery_time = self.current_time + timedelta(seconds=total_delay)
@@ -60,16 +69,30 @@ class NetworkSimulator:
     
     def process_events(self):
         """Обработка всех запланированных событий"""
+        # Обновляем текущее время симуляции
         self.current_time = datetime.now()
+        
+        # Обрабатываем все фреймы в очереди, пока она не пуста
         while not self.frame_queue.empty():
+            # Просматриваем первый элемент очереди (без извлечения)
             delivery_time, frame, receiver_id = self.frame_queue.queue[0]
+            
+            # Если время доставки еще не наступило, прерываем цикл
             if delivery_time > self.current_time:
                 break
             
+            # Извлекаем фрейм из очереди (теперь он будет обработан)
             self.frame_queue.get()
+            
+            # Проверяем, существует ли еще узел-получатель
             if receiver_id in self.nodes:
+                # Передаем фрейм целевому узлу
                 self.nodes[receiver_id].receive_frame(frame)
-                self.nodes[receiver_id].logger.debug(f"Фрейм {frame.type} доставлен узлу {receiver_id}")
+                
+                # Логируем факт доставки (уровень DEBUG)
+                self.nodes[receiver_id].logger.debug(
+                    f"Фрейм {frame.type} доставлен узлу {receiver_id}"
+                )
 
     def remove_node(self, node_id: int):
         """Удаление узла из сети"""
@@ -82,4 +105,4 @@ class NetworkSimulator:
                     new_queue.put((delivery_time, frame, receiver_id))
             self.frame_queue = new_queue
             del self.nodes[node_id]
-            print(f"Узел {node_id} полностью удален из сети")
+            print(f"NetworkSimulator: Узел {node_id} полностью удален из сети")
