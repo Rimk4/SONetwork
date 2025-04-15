@@ -1,160 +1,18 @@
-import atexit
 import os
-import readline
-import shutil
-import time
-import random
-import math
-import threading
-import queue
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, Tuple
+import random
+import queue
+import threading
+import time
 from datetime import datetime, timedelta
-
-# Константы из отчёта
-R = 10000  # Радиус связи 10 км в метрах
-V_MAX = 16.67  # Максимальная скорость 60 км/ч в м/с
-BITRATE_RANGE = (32, 37000)  # Диапазон битрейтов (32 бит/с - 37 кбит/с)
-SYN_SIZE = 16  # Размер SYN фрейма в байтах
-ACK_SIZE = 8  # Размер ACK фрейма в байтах
-DATA_FRAME_SIZE = 64  # Размер фрейма данных в байтах
-T_SCAN = 5  # Интервал сканирования в секундах
-T_TIMEOUT = 5  # Таймаут соединения в секундах
-T_SLEEP_MIN = 10  # Минимальное время сна в секундах
-T_SLEEP_MAX = 300  # Максимальное время сна в секундах
-
-# Папка для логов
-LOG_DIR = "logs"
-TMP_DIR = "tmp"
-HISTORY_FILE = "tmp/command_history.txt"  # File to store command history
-
-@dataclass
-class Position:
-    x: float
-    y: float
-    
-    def distance_to(self, other: 'Position') -> float:
-        return math.sqrt((self.x - other.x)**2 + (self.y - other.y)**2)
-
-@dataclass
-class NodeState:
-    position: Position
-    velocity: float = 0.0
-    direction: float = 0.0  # угол в радианах
-    last_update: datetime = field(default_factory=datetime.now)
-    
-    def move(self, delta_t: float):
-        """Обновление позиции узла с учётом движения"""
-        dx = self.velocity * math.cos(self.direction) * delta_t
-        dy = self.velocity * math.sin(self.direction) * delta_t
-        self.position.x += dx
-        self.position.y += dy
-        self.last_update = datetime.now()
-
-@dataclass
-class RoutingEntry:
-    node_id: int
-    next_hop: int
-    expire_time: datetime
-    metric: float  # комбинация качества связи и стабильности
-
-class Frame:
-    def __init__(self, frame_type: str, sender_id: int, payload: bytes = b'', crc: int = 0):
-        self.type = frame_type
-        self.sender_id = sender_id
-        self.payload = payload
-        self.crc = crc
-        self.timestamp = datetime.now()
-
-    def __str__(self):
-        return f"Frame(type={self.type}, sender={self.sender_id}, size={len(self.payload)} bytes)"
-
-    def __lt__(self, other):
-        return self.timestamp < other.timestamp
-
-class NetworkSimulator:
-    """Класс для симуляции радиоканала и задержек передачи"""
-    
-    def __init__(self):
-        self.nodes = {}
-        self.frame_queue = queue.PriorityQueue()
-        self.current_time = datetime.now()
-    
-    def add_node(self, node: 'P2PNode'):
-        self.nodes[node.node_id] = node
-    
-    def transmit_frame(self, frame: Frame, sender_id: int, receiver_id: int):
-        """Отправка фрейма с учётом задержек и вероятности потери"""
-        if sender_id not in self.nodes or receiver_id not in self.nodes:
-            return False
-        
-        sender = self.nodes[sender_id]
-        receiver = self.nodes[receiver_id]
-        
-        # Проверка расстояния
-        distance = sender.state.position.distance_to(receiver.state.position)
-        if distance > R:
-            sender.logger.debug(f"Узел {receiver_id} вне зоны покрытия узла {sender_id} (расстояние {distance:.1f} м)")
-            print(f"Узел {receiver_id} вне зоны покрытия узла {sender_id} (расстояние {distance:.1f} м)")
-            return False
-        
-        # Вероятность успешной передачи (из отчёта)
-        alpha = 0.3
-        p_success = math.exp(-alpha * distance / R)
-        if random.random() > p_success:
-            sender.logger.debug(f"Фрейм потерян из-за ошибки передачи (вероятность {p_success:.2f})")
-            return False
-        
-        # Расчет времени передачи (из отчёта)
-        frame_size = 4 + len(frame.payload) + 2 + 8  # заголовок + данные + CRC + временная метка
-        L = frame_size * 8  # размер в битах
-        B = sender.bitrate  # битрейт
-        transmission_time = L / B  # время передачи в секундах
-        
-        # Задержка распространения сигнала
-        propagation_delay = distance / 3e8
-        
-        # Общее время доставки
-        total_delay = transmission_time + propagation_delay
-        
-        # Запланировать доставку фрейма
-        delivery_time = self.current_time + timedelta(seconds=total_delay)
-        self.frame_queue.put((delivery_time, frame, receiver_id))
-        
-        sender.logger.debug(f"Фрейм от {sender_id} к {receiver_id} будет доставлен через {total_delay:.4f} сек")
-        return True
-    
-    def process_events(self):
-        """Обработка всех запланированных событий"""
-        self.current_time = datetime.now()
-        while not self.frame_queue.empty():
-            delivery_time, frame, receiver_id = self.frame_queue.queue[0]
-            if delivery_time > self.current_time:
-                break
-            
-            self.frame_queue.get()
-            if receiver_id in self.nodes:
-                self.nodes[receiver_id].receive_frame(frame)
-                self.nodes[receiver_id].logger.debug(f"Фрейм {frame.type} доставлен узлу {receiver_id}")
-
-    def remove_node(self, node_id: int):
-        """Удаление узла из сети"""
-        if node_id in self.nodes:
-            # Удаляем все запланированные фреймы для этого узла
-            new_queue = queue.PriorityQueue()
-            while not self.frame_queue.empty():
-                delivery_time, frame, receiver_id = self.frame_queue.get()
-                if receiver_id != node_id and frame.sender_id != node_id:
-                    new_queue.put((delivery_time, frame, receiver_id))
-            self.frame_queue = new_queue
-            del self.nodes[node_id]
-            print(f"Узел {node_id} полностью удален из сети")
+from typing import Dict, Tuple
+from src.models import Position, Frame, NodeState, RoutingEntry
+from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR
 
 class P2PNode(threading.Thread):
     """Класс, реализующий узел P2P-сети"""
     
-    def __init__(self, node_id: int, position: Position, network: NetworkSimulator, 
+    def __init__(self, node_id: int, position: Position, network: 'NetworkSimulator', 
                  velocity: float = 0.0, direction: float = 0.0, bitrate: int = 5000):
         super().__init__(daemon=True)
         self.node_id = node_id
@@ -194,7 +52,7 @@ class P2PNode(threading.Thread):
         self.max_retries = 3  # максимальное число попыток
         
         print(f"Создан узел {self.node_id} на позиции ({position.x:.1f}, {position.y:.1f})")
-    
+
     def run(self):
         """Основной цикл работы узла"""
         last_scan = datetime.now()
@@ -303,7 +161,7 @@ class P2PNode(threading.Thread):
         if not self.routing_table:
             print("Таблица маршрутизации пуста")
             return
-        
+
         print(f"{'ID узла':<10}{'След. прыжок':<15}{'Метрика':<10}{'Истекает':<20}")
         for node_id, entry in self.routing_table.items():
             expires_in = (entry.expire_time - datetime.now()).total_seconds()
@@ -315,12 +173,13 @@ class P2PNode(threading.Thread):
         if not self.local_map:
             print("Локальная карта пуста")
             return
-        
+
         print(f"{'ID узла':<10}{'Позиция (x,y)':<25}{'Обновлено':<20}")
         for node_id, (pos, last_update) in self.local_map.items():
             age = (datetime.now() - last_update).total_seconds()
-            print(f"{node_id:<10}({pos.x:.1f}, {pos.y:.1f}){'':<10}{age:.1f} сек назад")
-    
+            coords = f'({pos.x:.1f}, {pos.y:.1f})'
+            print(f"{node_id:<10}{coords:<25}{age:.1f} сек назад")
+
     def cmd_help(self):
         """Показать справку по командам"""
         print("\n=== Доступные команды ===")
@@ -450,129 +309,3 @@ class P2PNode(threading.Thread):
     def stop(self):
         """Остановка работы узла"""
         self.running = False
-
-def interactive_control(network: NetworkSimulator):
-    """Интерактивное управление узлами сети"""
-    current_node_id = next(iter(network.nodes)) if network.nodes else None
-
-    # Load command history
-    if os.path.exists(HISTORY_FILE):
-        readline.read_history_file(HISTORY_FILE)
-
-    # Save command history on exit
-    atexit.register(readline.write_history_file, HISTORY_FILE)
-    
-    while True:
-        try:
-            if current_node_id is None:
-                cmd = input("> ").strip()
-                if cmd.lower() in ("exit", "q"):
-                    break
-                print("Нет активных узлов в сети")
-                continue
-            
-            prompt = f"node_{current_node_id}> "
-            cmd = input(prompt).strip()
-            
-            if not cmd:
-                continue
-
-            if cmd:
-                readline.add_history(cmd)
-            
-            if cmd.lower() in ("exit", "q"):
-                break
-            
-            if cmd.lower() == "switch":
-                # Переключение на другой узел
-                print("Доступные узлы:", list(network.nodes.keys()))
-                try:
-                    new_id = int(input("Введите ID узла: "))
-                    if new_id in network.nodes:
-                        current_node_id = new_id
-                        print(f"Переключено на узел {new_id}")
-                    else:
-                        print("Узел с таким ID не найден")
-                except ValueError:
-                    print("Неверный ID узла")
-                continue
-            
-            if cmd.lower() == "kill":
-                if len(network.nodes) <= 1:
-                    print("Нельзя удалить последний узел в сети!")
-                    continue
-                
-                print(f"Удаляем узел {current_node_id}...")
-                # 1. Останавливаем узел
-                network.nodes[current_node_id].stop()
-                # 2. Ждем завершения потока
-                network.nodes[current_node_id].join()
-                # 3. Удаляем из сетевого симулятора
-                network.remove_node(current_node_id)
-                
-                # Переключаемся на другой доступный узел
-                current_node_id = next(iter(network.nodes))
-                print(f"Переключено на узел {current_node_id}")
-                continue
-
-            # Отправляем команду текущему узлу
-            network.nodes[current_node_id].send_command(cmd)
-            
-            # Даем время на обработку команды
-            time.sleep(0.1)
-        
-        except KeyboardInterrupt:
-            print("\nЗавершение работы...")
-            break
-    
-    # Останавливаем все узлы
-    for node in network.nodes.values():
-        node.stop()
-        node.join()
-
-def main():
-    # Удаляем папку с логами, если она существует
-    if os.path.exists(LOG_DIR):
-        shutil.rmtree(LOG_DIR)
-    
-    # Создаем папку для логов
-    os.makedirs(LOG_DIR)
-
-    if not os.path.exists(TMP_DIR):
-        os.makedirs(TMP_DIR)
-
-    """Основная функция для создания и запуска сети"""
-    network = NetworkSimulator()
-    
-    # Создаем несколько узлов
-    node1 = P2PNode(1, Position(0, 0), network, bitrate=10000)
-    node2 = P2PNode(2, Position(5000, 0), network, bitrate=8000)
-    node3 = P2PNode(3, Position(0, 5000), network, bitrate=12000)
-    node4 = P2PNode(4, Position(5000, 5000), network, velocity=5, direction=math.pi/4, bitrate=15000)
-
-    nodes_list = [node1, node2, node3, node4]
-    
-    # Добавляем узлы в сеть и запускаем их
-    for node in nodes_list:
-        network.add_node(node)
-        node.start()
-    
-    # Запускаем обработчик событий сети в отдельном потоке
-    def network_processor():
-        while True:
-            network.process_events()
-            time.sleep(0.1)
-    
-    net_thread = threading.Thread(target=network_processor, daemon=True)
-    net_thread.start()
-    
-    # Запускаем интерактивное управление
-    print("=== Модель самоорганизующейся P2P-сети ===")
-    print("Доступные команды: info, scan, send, route, nodes, help")
-    print("Для переключения между узлами используйте команду 'switch'")
-    print("Для выхода введите 'exit' или 'q'")
-    
-    interactive_control(network)
-
-if __name__ == "__main__":
-    main()
