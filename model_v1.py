@@ -26,7 +26,8 @@ T_SLEEP_MAX = 300  # Максимальное время сна в секунд�
 
 # Папка для логов
 LOG_DIR = "logs"
-HISTORY_FILE = "command_history.txt"  # File to store command history
+TMP_DIR = "tmp"
+HISTORY_FILE = "tmp/command_history.txt"  # File to store command history
 
 @dataclass
 class Position:
@@ -536,6 +537,9 @@ def main():
     
     # Создаем папку для логов
     os.makedirs(LOG_DIR)
+
+    if not os.path.exists(TMP_DIR):
+        os.makedirs(TMP_DIR)
 
     """Основная функция для создания и запуска сети"""
     network = NetworkSimulator()
