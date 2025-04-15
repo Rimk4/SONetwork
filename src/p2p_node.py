@@ -4,6 +4,7 @@ import random
 import queue
 import threading
 import time
+import math
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
 from src.models import Position, Frame, NodeState, RoutingEntry
