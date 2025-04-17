@@ -5,18 +5,8 @@ from unittest.mock import MagicMock, patch, call
 
 @pytest.fixture
 def mock_network():
-    """Фикстура для мок-объекта сети с поддержкой stop_simulation"""
-    network = MagicMock()
-    network._should_stop = False
-    
-    # Реализуем side_effect для stop_simulation
-    def stop_simulation_side_effect():
-        network._should_stop = True
-        for node in network.nodes.values():
-            node.stop()
-    
-    network.stop_simulation.side_effect = stop_simulation_side_effect
-    return network
+    """Фикстура для мок-объекта сети"""
+    return MagicMock()
 
 def test_single_node_exit(mock_network):
     """Тест выхода при одном узле"""
@@ -25,9 +15,7 @@ def test_single_node_exit(mock_network):
     
     with patch('builtins.input', return_value='exit'):
         interactive_control(mock_network)
-
-        # Проверяем, что stop_simulation был вызван
-        mock_network.stop_simulation.assert_called_once()
+        
         mock_node.stop.assert_called_once()
         mock_node.join.assert_called_once()
 
@@ -101,8 +89,6 @@ def test_keyboard_interrupt(mock_network):
             
             output = fake_out.getvalue().strip()
             assert "Завершение работы..." in output
-
-    # Проверяем вызов stop_simulation при прерывании
-    mock_network.stop_simulation.assert_called_once()
+            
     mock_node.stop.assert_called_once()
     mock_node.join.assert_called_once()
