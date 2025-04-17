@@ -1,8 +1,9 @@
+import logging
 import queue
 import random
 import math
 from datetime import datetime, timedelta
-from typing import Dict
+from typing import Dict, Optional
 from src.models import Frame
 from src.constants import R
 
@@ -94,15 +95,46 @@ class NetworkSimulator:
                     f"Фрейм {frame.type} доставлен узлу {receiver_id}"
                 )
 
-    def remove_node(self, node_id: int):
-        """Удаление узла из сети"""
-        if node_id in self.nodes:
-            # Удаляем все запланированные фреймы для этого узла
+    def remove_node(self, node_id: int) -> Optional[bool]:
+        """
+        Удаление узла из сети.
+        
+        Args:
+            node_id: ID узла для удаления
+            
+        Returns:
+            bool: True если узел был удален, False если не найден
+            None: если произошла ошибка
+        """
+        if node_id not in self.nodes:
+            print(f"NetworkSimulator: Попытка удалить несуществующий узел {node_id}")
+            return False
+            
+        try:
+            # Удаляем все фреймы, связанные с этим узлом
             new_queue = queue.PriorityQueue()
+            removed_frames = 0
+            
             while not self.frame_queue.empty():
-                delivery_time, frame, receiver_id = self.frame_queue.get()
-                if receiver_id != node_id and frame.sender_id != node_id:
-                    new_queue.put((delivery_time, frame, receiver_id))
+                try:
+                    delivery_time, frame, receiver_id = self.frame_queue.get_nowait()
+                    if receiver_id != node_id and frame.sender_id != node_id:
+                        new_queue.put((delivery_time, frame, receiver_id))
+                    else:
+                        removed_frames += 1
+                except queue.Empty:
+                    break
+                    
             self.frame_queue = new_queue
             del self.nodes[node_id]
-            print(f"NetworkSimulator: Узел {node_id} полностью удален из сети")
+            
+            print(
+                f"NetworkSimulator: Узел {node_id} удален. "
+                f"Удалено фреймов: {removed_frames}. "
+                f"Осталось узлов: {len(self.nodes)}"
+            )
+            return True
+            
+        except Exception as e:
+            print(f"NetworkSimulator: Ошибка при удалении узла {node_id}: {str(e)}")
+            return None
