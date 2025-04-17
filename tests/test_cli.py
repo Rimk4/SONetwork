@@ -14,7 +14,6 @@ def mock_network():
         network._should_stop = True
         for node in network.nodes.values():
             node.stop()
-            node.join()
     
     network.stop_simulation.side_effect = stop_simulation_side_effect
     return network

@@ -76,7 +76,6 @@ class NetworkSimulator:
         self._should_stop = True
         for node in self.nodes.values():
             node.stop()
-            node.join()
 
     def process_events(self):
         """Обработка всех запланированных событий"""

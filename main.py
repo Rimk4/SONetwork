@@ -18,7 +18,7 @@ def main():
     os.makedirs(LOG_DIR)
 
     """Основная функция для создания и запуска сети"""
-    network = NetworkSimulator(simulation_time=2)
+    network = NetworkSimulator(simulation_time=300)
     
     # Создаем несколько узлов
     node1 = P2PNode(1, Position(0, 0), network, bitrate=10000)
