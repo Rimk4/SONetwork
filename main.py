@@ -18,7 +18,7 @@ def main():
     os.makedirs(LOG_DIR)
 
     """Основная функция для создания и запуска сети"""
-    network = NetworkSimulator()
+    network = NetworkSimulator(simulation_time=300)
     
     # Создаем несколько узлов
     node1 = P2PNode(1, Position(0, 0), network, bitrate=10000)
@@ -35,8 +35,7 @@ def main():
     
     # Запускаем обработчик событий сети в отдельном потоке
     def network_processor():
-        while True:
-            network.process_events()
+        while network.process_events():  # Будет работать, пока process_events возвращает True
             time.sleep(0.1)
     
     net_thread = threading.Thread(target=network_processor, daemon=True)

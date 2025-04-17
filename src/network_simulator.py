@@ -10,10 +10,13 @@ from src.constants import R
 class NetworkSimulator:
     """Класс для симуляции радиоканала и задержек передачи"""
     
-    def __init__(self):
+    def __init__(self, simulation_time=None):
         self.nodes = {}
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
+        self.simulation_time = simulation_time  # в секундах
+        self.start_time = datetime.now()
+        self._should_stop = False  # Флаг для мягкого завершения
     
     def add_node(self, node: 'P2PNode'):
         self.nodes[node.node_id] = node
@@ -68,11 +71,26 @@ class NetworkSimulator:
         sender.logger.debug(f"Фрейм от {sender_id} к {receiver_id} будет доставлен через {total_delay:.4f} сек")
         return True
     
+    def stop_simulation(self):
+        """Мягкое завершение симуляции"""
+        self._should_stop = True
+        for node in self.nodes.values():
+            node.stop()
+
     def process_events(self):
         """Обработка всех запланированных событий"""
         # Обновляем текущее время симуляции
         self.current_time = datetime.now()
+
+        if self._should_stop:
+            return False  # Сигнализируем о необходимости остановки
         
+        if self.simulation_time is not None:
+            if self.current_time - self.start_time >= timedelta(seconds=self.simulation_time):
+                print(f"Симуляция завершена по истечении {self.simulation_time} секунд")
+                self.stop_simulation()
+                return False
+
         # Обрабатываем все фреймы в очереди, пока она не пуста
         while not self.frame_queue.empty():
             # Просматриваем первый элемент очереди (без извлечения)
@@ -94,6 +112,8 @@ class NetworkSimulator:
                 self.nodes[receiver_id].logger.debug(
                     f"Фрейм {frame.type} доставлен узлу {receiver_id}"
                 )
+
+        return True
 
     def remove_node(self, node_id: int) -> Optional[bool]:
         """
