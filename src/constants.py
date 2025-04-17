@@ -13,4 +13,3 @@ T_SLEEP_MAX = 300  # Максимальное время сна в секунд�
 # Папки и файлы
 LOG_DIR = "logs"
 TMP_DIR = "tmp"
-HISTORY_FILE = "tmp/command_history.txt"  # File to store command history
