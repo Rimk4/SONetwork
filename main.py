@@ -17,9 +17,6 @@ def main():
     # Создаем папку для логов
     os.makedirs(LOG_DIR)
 
-    if not os.path.exists(TMP_DIR):
-        os.makedirs(TMP_DIR)
-
     """Основная функция для создания и запуска сети"""
     network = NetworkSimulator()
     

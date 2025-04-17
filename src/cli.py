@@ -1,19 +1,31 @@
 import atexit
 import os
 import readline
+import tempfile
 import time
-from src.constants import HISTORY_FILE
 
 def interactive_control(network: 'NetworkSimulator'):
     """Интерактивное управление узлами сети"""
     current_node_id = next(iter(network.nodes)) if network.nodes else None
 
-    # Load command history
-    if os.path.exists(HISTORY_FILE):
-        readline.read_history_file(HISTORY_FILE)
+    # Создаем временный файл для истории текущей сессии
+    temp_history = tempfile.NamedTemporaryFile(delete=False)
+    temp_history.close()
+    session_history_file = temp_history.name
 
-    # Save command history on exit
-    atexit.register(readline.write_history_file, HISTORY_FILE)
+    # Настраиваем readline для использования временного файла истории
+    readline.read_history_file(session_history_file) if os.path.exists(session_history_file) else None
+
+    def cleanup():
+        """Очистка временных файлов при выходе"""
+        try:
+            os.unlink(session_history_file)
+        except OSError:
+            pass
+
+    # Регистрируем очистку при выходе
+    atexit.register(cleanup)
+    atexit.register(readline.write_history_file, session_history_file)
     
     while True:
         try:
@@ -77,7 +89,7 @@ def interactive_control(network: 'NetworkSimulator'):
         except KeyboardInterrupt:
             print("\nЗавершение работы...")
             break
-    
+
     # Останавливаем все узлы
     for node in network.nodes.values():
         node.stop()
