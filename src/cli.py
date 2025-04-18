@@ -80,6 +80,10 @@ def interactive_control(network: 'NetworkSimulator'):
                 print(f"Переключено на узел {current_node_id}")
                 continue
 
+            if cmd.lower() == "visualize":
+                network.visualize(current_node_id)
+                continue
+
             # Отправляем команду текущему узлу
             network.nodes[current_node_id].send_command(cmd)
             
