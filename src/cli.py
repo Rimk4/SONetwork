@@ -1,12 +1,15 @@
+# CLI Command Line Interface
 import atexit
 import os
 import readline
 import tempfile
 import time
+from src.FrameRecorder import FrameRecorder
 
 def interactive_control(network: 'NetworkSimulator'):
     """Интерактивное управление узлами сети"""
     current_node_id = next(iter(network.nodes)) if network.nodes else None
+    recorder = FrameRecorder(network)  # Добавляем рекордер
 
     # Создаем временный файл для истории текущей сессии
     temp_history = tempfile.NamedTemporaryFile(delete=False)
@@ -82,6 +85,17 @@ def interactive_control(network: 'NetworkSimulator'):
 
             if cmd.lower() == "visualize":
                 network.visualize(current_node_id)
+                continue
+
+            if cmd.lower().startswith("record"):
+                parts = cmd.split()
+                fps = int(parts[1]) if len(parts) > 1 else 1
+                duration = float(parts[2]) if len(parts) > 2 else 10
+                recorder.start_recording(current_node_id, fps, duration)
+                continue
+
+            if cmd.lower() == "stop":
+                recorder.stop_recording()
                 continue
 
             # Отправляем команду текущему узлу

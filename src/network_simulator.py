@@ -21,7 +21,7 @@ class NetworkSimulator:
     def add_node(self, node: 'P2PNode'):
         self.nodes[node.node_id] = node
 
-    def visualize(self, observer_id: int = None):
+    def visualize(self, observer_id: int = None, frame_name: str = None):
         """Визуализация сети с узлами и их соединениями"""
         # Создаем папку для сохранения кадров
         timestamp = self.start_time.strftime("%Y%m%d_%H%M%S")
@@ -55,7 +55,11 @@ class NetworkSimulator:
         plt.ylabel("Координата Y (м)")
         plt.grid(True)
         # Сохраняем кадр
-        frame_path = os.path.join(output_dir, f"network_plot_{int(time.time())}.png")
+        if frame_name is None:
+            frame_name = f"network_plot_{int(time.time())}.png"
+            frame_path = os.path.join(output_dir, frame_name)
+        else:
+            frame_path = frame_name
         plt.savefig(frame_path)
         plt.close()
 
