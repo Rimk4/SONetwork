@@ -153,6 +153,7 @@ class P2PNode(threading.Thread):
                 print(f"P2PNode: Сообщение отправлено узлу {target_node_id} через {next_hop}")
             else:
                 print("Ошибка передачи сообщения!")
+
         except ValueError:
             print("Неверный ID узла!")
     
