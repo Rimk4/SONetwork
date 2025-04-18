@@ -38,6 +38,15 @@ def main():
     """Основная функция для создания и запуска сети"""
     network = generate_random_network()
 
+    # Запускаем обработчик событий сети в отдельном потоке
+    def network_processor():
+        while True:
+            network.process_events()
+            time.sleep(0.1)
+    
+    net_thread = threading.Thread(target=network_processor, daemon=True)
+    net_thread.start()
+
     # Запуск симуляции пользователя вместо интерактивного управления
     if os.environ.get("USER_SIMULATION"):
         from src.user import simulate_user
@@ -50,15 +59,6 @@ def main():
         print("Для выхода введите 'exit' или 'q'")
         
         interactive_control(network)
-    
-    # Запускаем обработчик событий сети в отдельном потоке
-    def network_processor():
-        while True:
-            network.process_events()
-            time.sleep(0.1)
-    
-    net_thread = threading.Thread(target=network_processor, daemon=True)
-    net_thread.start()
 
 if __name__ == "__main__":
     main()
