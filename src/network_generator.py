@@ -4,6 +4,7 @@ from typing import List
 from src.models import Position
 from src.network_simulator import NetworkSimulator
 from src.p2p_node import P2PNode
+from src.constants import V_MAX
 
 def generate_random_network(
     num_nodes: int = 8,
@@ -37,7 +38,7 @@ def generate_random_network(
         velocity = 0
         direction = 0
         if random.random() < mobile_prob:
-            velocity = random.uniform(1, 10)  # Скорость от 1 до 10 единиц/сек
+            velocity = random.uniform(1, V_MAX)  # Скорость от 1 до V_MAX м/сек
             direction = random.uniform(0, 2 * math.pi)  # Случайное направление
             
         # Создаем узел
