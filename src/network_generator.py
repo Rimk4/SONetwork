@@ -11,7 +11,7 @@ def generate_random_network(
     area_size: int = 10000,
     min_bitrate: int = 5000,
     max_bitrate: int = 20000,
-    mobile_prob: float = 0.3
+    mobile_prob: float = 0.9
 ) -> NetworkSimulator:
     """
     Генерирует случайную P2P-сеть с заданными параметрами
@@ -27,8 +27,8 @@ def generate_random_network(
     
     for node_id in range(1, num_nodes + 1):
         # Случайные координаты
-        x = random.randint(0, area_size)
-        y = random.randint(0, area_size)
+        x = random.randint(0, area_size * 2)
+        y = random.randint(0, area_size * 2)
         position = Position(x, y)
         
         # Случайная скорость передачи данных
