@@ -4,9 +4,10 @@ import math
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 from src.models import Frame
-from src.constants import R
+from src.constants import R, FRAMES_DIR
 import matplotlib.pyplot as plt
 import time
+import os
 
 class NetworkSimulator:
     """Класс для симуляции радиоканала и задержек передачи"""
@@ -15,14 +16,19 @@ class NetworkSimulator:
         self.nodes = {}
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
+        self.start_time = self.current_time
 
     def add_node(self, node: 'P2PNode'):
         self.nodes[node.node_id] = node
 
     def visualize(self, observer_id: int = None):
         """Визуализация сети с узлами и их соединениями"""
-        plt.figure(figsize=(10, 8))
+        # Создаем папку для сохранения кадров
+        timestamp = self.start_time.strftime("%Y%m%d_%H%M%S")
+        output_dir = f"{FRAMES_DIR}/network_frames_{timestamp}"
+        os.makedirs(output_dir, exist_ok=True)
 
+        plt.figure(figsize=(10, 8))
         # Отображение всех узлов
         for node_id, node in self.nodes.items():
             position = node.state.position
@@ -48,7 +54,10 @@ class NetworkSimulator:
         plt.xlabel("Координата X (м)")
         plt.ylabel("Координата Y (м)")
         plt.grid(True)
-        plt.savefig(f"network_plot_{int(time.time())}.png")
+        # Сохраняем кадр
+        frame_path = os.path.join(output_dir, f"network_plot_{int(time.time())}.png")
+        plt.savefig(frame_path)
+        plt.close()
 
     def transmit_frame(self, frame: Frame, sender_id: int, receiver_id: int) -> bool:
         """Отправка фрейма с учётом задержек и вероятности потери"""

@@ -12,4 +12,4 @@ T_SLEEP_MAX = 300  # Максимальное время сна в секунд�
 
 # Папки и файлы
 LOG_DIR = "logs"
-TMP_DIR = "tmp"
+FRAMES_DIR = "network_frames"
