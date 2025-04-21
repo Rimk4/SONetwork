@@ -1,40 +1,34 @@
 import os
 from pathlib import Path
-import shutil
 import threading
 import time
-from src.constants import LOG_DIR, FRAMES_DIR
+from src.constants import LOG_DIR, FRAMES_DIR, CONFIGS_DIR
 from src.cli import interactive_control
 from src.restore_session import *
 
-def setup_frames_dir():
-    """Создает папку для кадров с .gitignore если не существует"""
-    try:
-        # Создаем папку (если не существует)
-        os.makedirs(FRAMES_DIR, exist_ok=True)
-        
-        # Путь к .gitignore
-        gitignore_path = Path(FRAMES_DIR) / ".gitignore"
-        
-        # Создаем .gitignore только если его нет
-        if not gitignore_path.exists():
-            with open(gitignore_path, 'w') as f:
-                f.write(f"# Created by {__file__}\n*\n")
-                
-    except Exception as e:
-        print(f"Ошибка при создании папки для кадров: {e}")
+def setup_dirs():
+    """Создает папки с .gitignore если не существует"""
+    directories = [LOG_DIR, FRAMES_DIR, CONFIGS_DIR]
+    for dir in directories:
+        try:
+            # Создаем папку (если не существует)
+            os.makedirs(dir, exist_ok=True)
+            
+            # Путь к .gitignore
+            gitignore_path = Path(dir) / ".gitignore"
+            
+            # Создаем .gitignore только если его нет
+            if not gitignore_path.exists():
+                with open(gitignore_path, 'w') as f:
+                    f.write(f"# Created by {__file__}\n*\n")
+                    
+        except Exception as e:
+            print(f"Ошибка при создании папки {dir}: {e}")
 
 def main():
     """Основная функция для создания и запуска сети"""
-    # Удаляем папку с логами, если она существует
-    if os.path.exists(LOG_DIR):
-        shutil.rmtree(LOG_DIR)
-    
-    # Создаем папку для логов
-    os.makedirs(LOG_DIR)
-
-    # Создаем папку для кадров
-    setup_frames_dir()
+    # Подготовка директорий
+    setup_dirs()
 
     args = parse_args()
 

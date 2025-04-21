@@ -14,3 +14,4 @@ T_SLEEP_MAX = 300  # Максимальное время сна в секунд�
 OUT_DIR = "out"
 LOG_DIR = f"{OUT_DIR}/logs"
 FRAMES_DIR = f"{OUT_DIR}/network_frames"
+CONFIGS_DIR = f"{OUT_DIR}/saved_networks"

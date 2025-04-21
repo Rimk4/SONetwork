@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 from pathlib import Path
 from src.models import Frame
-from src.constants import R, FRAMES_DIR
+from src.constants import CONFIGS_DIR, R, FRAMES_DIR
 import matplotlib.pyplot as plt
 import time
 import os
@@ -197,7 +197,7 @@ class NetworkSimulator:
             str: Путь к сохраненному файлу
         """
         # Создаем папку out, если ее нет
-        output_dir = Path("out")
+        output_dir = Path(CONFIGS_DIR)
         output_dir.mkdir(exist_ok=True)
         
         # Формируем имя файла
