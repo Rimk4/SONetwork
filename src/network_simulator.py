@@ -1,8 +1,10 @@
+import json
 import queue
 import random
 import math
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+from pathlib import Path
 from src.models import Frame
 from src.constants import R, FRAMES_DIR
 import matplotlib.pyplot as plt
@@ -183,3 +185,135 @@ class NetworkSimulator:
         except Exception as e:
             print(f"NetworkSimulator: Ошибка при удалении узла {node_id}: {str(e)}")
             return None
+
+    def save_network_config(self, filename: str = None) -> str:
+        """
+        Сохраняет текущую конфигурацию сети в JSON файл.
+        
+        Args:
+            filename: Имя файла для сохранения. Если None, генерируется автоматически.
+            
+        Returns:
+            str: Путь к сохраненному файлу
+        """
+        # Создаем папку out, если ее нет
+        output_dir = Path("out")
+        output_dir.mkdir(exist_ok=True)
+        
+        # Формируем имя файла
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"network_config_{timestamp}.json"
+        elif not filename.endswith(".json"):
+            filename += ".json"
+            
+        filepath = output_dir / filename
+        
+        # Формируем данные для сохранения
+        config = {
+            "metadata": {
+                "save_time": datetime.now().isoformat(),
+                "node_count": len(self.nodes),
+                "simulation_start_time": self.start_time.isoformat(),
+                "current_sim_time": self.current_time.isoformat()
+            },
+            "nodes": {
+                node_id: {
+                    "position": {
+                        "x": node.state.position.x,
+                        "y": node.state.position.y
+                    },
+                    "bitrate": node.bitrate,
+                    "state": {  # Сохраняем состояние как словарь
+                        "velocity": node.state.velocity,
+                        "direction": node.state.direction,
+                        "last_update": node.state.last_update.isoformat()
+                    }
+                }
+                for node_id, node in self.nodes.items()
+            },
+            "pending_frames": [
+                {
+                    "delivery_time": delivery_time.isoformat(),
+                    "receiver_id": receiver_id,
+                    "frame_type": frame.type,
+                    "frame_sender": frame.sender_id
+                }
+                for delivery_time, frame, receiver_id in self.frame_queue.queue
+            ]
+        }
+        
+        # Сохраняем в файл
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+            
+        return str(filepath)
+
+    @classmethod
+    def load_network_config(cls, filepath: str) -> Optional['NetworkSimulator']:
+        """
+        Загружает конфигурацию сети из JSON файла и создает новый экземпляр NetworkSimulator.
+        
+        Args:
+            filepath: Путь к JSON файлу с конфигурацией
+            
+        Returns:
+            NetworkSimulator: Восстановленный экземпляр симулятора
+            None: Если произошла ошибка загрузки
+        """
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # Создаем новый экземпляр симулятора
+            simulator = cls()
+            
+            # Восстанавливаем временные метки
+            simulator.start_time = datetime.fromisoformat(config['metadata']['simulation_start_time'])
+            simulator.current_time = datetime.fromisoformat(config['metadata']['current_sim_time'])
+            
+            # Восстанавливаем узлы (только базовые параметры, реальные узлы нужно добавить через add_node)
+            # Здесь предполагается, что узлы будут добавлены позже через add_node
+            simulator.nodes = {}  # Очищаем, так как реальные узлы будут добавляться отдельно
+            
+            # Восстанавливаем очередь фреймов
+            simulator.frame_queue = queue.PriorityQueue()
+            for frame_data in config['pending_frames']:
+                delivery_time = datetime.fromisoformat(frame_data['delivery_time'])
+                frame = Frame(
+                    type=frame_data['frame_type'],
+                    sender_id=frame_data['frame_sender'],
+                    payload=b''  # В реальной реализации нужно восстановить payload
+                )
+                simulator.frame_queue.put((delivery_time, frame, frame_data['receiver_id']))
+            
+            return simulator
+            
+        except Exception as e:
+            print(f"Ошибка загрузки конфигурации сети: {str(e)}")
+            return None
+
+    def restore_nodes_from_config(self, config_file: str, node_creator: callable) -> bool:
+        """
+        Восстанавливает узлы сети из конфигурационного файла.
+        
+        Args:
+            config_file: Путь к JSON файлу с конфигурацией
+            node_creator: Функция для создания узлов (должна принимать node_id и config)
+            
+        Returns:
+            bool: True если восстановление прошло успешно, False если произошла ошибка
+        """
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            for node_id, node_config in config['nodes'].items():
+                node = node_creator(int(node_id), node_config)
+                self.add_node(node)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Ошибка восстановления узлов: {str(e)}")
+            return False

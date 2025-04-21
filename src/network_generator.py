@@ -56,20 +56,3 @@ def generate_random_network(
         node.start()
     
     return network
-
-def get_network_configuration1():
-    network = NetworkSimulator()
-    
-    # Создаем несколько узлов
-    node1 = P2PNode(1, Position(0, 0), network, bitrate=10000)
-    node2 = P2PNode(2, Position(5000, 0), network, bitrate=8000)
-    node3 = P2PNode(3, Position(0, 5000), network, bitrate=12000)
-    node4 = P2PNode(4, Position(5000, 5000), network, velocity=5, direction=math.pi/4, bitrate=15000)
-
-    nodes_list = [node1, node2, node3, node4]
-
-    for node in nodes_list:
-        network.add_node(node)
-        node.start()
-
-    return network

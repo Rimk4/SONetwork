@@ -11,5 +11,6 @@ T_SLEEP_MIN = 10  # Минимальное время сна в секундах
 T_SLEEP_MAX = 300  # Максимальное время сна в секундах
 
 # Папки и файлы
-LOG_DIR = "logs"
-FRAMES_DIR = "network_frames"
+OUT_DIR = "out"
+LOG_DIR = f"{OUT_DIR}/logs"
+FRAMES_DIR = f"{OUT_DIR}/network_frames"

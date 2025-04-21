@@ -4,8 +4,8 @@ import shutil
 import threading
 import time
 from src.constants import LOG_DIR, FRAMES_DIR
-from src.network_generator import *
 from src.cli import interactive_control
+from src.restore_session import *
 
 def setup_frames_dir():
     """Создает папку для кадров с .gitignore если не существует"""
@@ -25,6 +25,7 @@ def setup_frames_dir():
         print(f"Ошибка при создании папки для кадров: {e}")
 
 def main():
+    """Основная функция для создания и запуска сети"""
     # Удаляем папку с логами, если она существует
     if os.path.exists(LOG_DIR):
         shutil.rmtree(LOG_DIR)
@@ -35,8 +36,10 @@ def main():
     # Создаем папку для кадров
     setup_frames_dir()
 
-    """Основная функция для создания и запуска сети"""
-    network = generate_random_network()
+    args = parse_args()
+
+    # Инициализация сети
+    network = initialize_network(args.load)
 
     # Запускаем обработчик событий сети в отдельном потоке
     def network_processor():

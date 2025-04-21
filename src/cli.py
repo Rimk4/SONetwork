@@ -98,6 +98,17 @@ def interactive_control(network: 'NetworkSimulator'):
                 recorder.stop_recording()
                 continue
 
+            if cmd.lower().startswith("savecfg"):
+                parts = cmd.split()
+                filename = parts[1] if len(parts) > 1 else None
+                if filename is None:
+                    saved_path = network.save_network_config()
+                else:
+                    saved_path = network.save_network_config(filename)
+
+                print(f"Конфигурация сохранена в: {saved_path}")
+                continue
+
             # Отправляем команду текущему узлу
             network.nodes[current_node_id].send_command(cmd)
             
