@@ -5,17 +5,12 @@ from datetime import datetime
 
 def parse_args():
     """Парсит аргументы командной строки"""
-    parser = argparse.ArgumentParser(description='Модель самоорганизующейся P2P-сети')
+    parser = argparse.ArgumentParser(description="Модель самоорганизующейся P2P-сети")
     parser.add_argument(
-        '-l', '--load',
+        "-l", "--load",
         type=str,
-        help='Путь к файлу конфигурации для загрузки сети',
+        help="Путь к файлу конфигурации для загрузки сети",
         default=None
-    )
-    parser.add_argument(
-        '-s', '--simulate',
-        action='store_true',
-        help='Запустить автоматическую симуляцию вместо интерактивного режима'
     )
     return parser.parse_args()
 
@@ -30,13 +25,13 @@ def restore_network(config_file: str) -> Optional[NetworkSimulator]:
     def node_creator(node_id, config):
         node = P2PNode(
             node_id=node_id,
-            position=Position(config['position']['x'], config['position']['y']),
+            position=Position(config["position"]["x"], config["position"]["y"]),
             network=network,
-            velocity=config['state']['velocity'],
-            direction=config['state']['direction'],
-            bitrate=config['bitrate']
+            velocity=config["state"]["velocity"],
+            direction=config["state"]["direction"],
+            bitrate=config["bitrate"]
         )
-        node.state.last_update = datetime.fromisoformat(config['state']['last_update'])
+        node.state.last_update = datetime.fromisoformat(config["state"]["last_update"])
         node.start()
 
         return node
