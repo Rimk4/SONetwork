@@ -28,14 +28,19 @@ python3 -m pytest -v
 python3 -m pytest -v tests/test_*.py::<test_name>
 ```
   
-- покрытие в html
+- покрытие с отчётом в терминале
+```bash
+python3 -m pytest -v --cov=src --cov-report=term-missing
+```
+  
+- покрытие с отчётом в html
 ```bash
 python3 -m pytest -v --cov=src --cov-report=html
 ```
   
-- покрытие в терминале
+- открыть html отчёт coverage в браузере
 ```bash
-python3 -m pytest -v --cov=src --cov-report=term-missing
+firefox htmlcov/index.html 
 ```
   
 - запуск симуляции с автоматической генерацией сети
