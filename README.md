@@ -55,5 +55,5 @@ python3 main.py
   
 - запуск с подменой терминала, которым будет управлять мнимый пользователь
 ```bash
-USER_SIMULATION=1 python3 main.py
+python3 src/user.py | python3 main.py
 ```

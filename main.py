@@ -44,18 +44,13 @@ def main():
     net_thread = threading.Thread(target=network_processor, daemon=True)
     net_thread.start()
 
-    # Запуск симуляции пользователя вместо интерактивного управления
-    if os.environ.get("USER_SIMULATION"):
-        from src.user import simulate_user
-        simulate_user(network, duration=30)  # 2 минуты симуляции
-    else:
-         # Запускаем интерактивное управление
-        print("=== Модель самоорганизующейся P2P-сети ===")
-        print("Доступные команды: info, scan, send, route, nodes, help")
-        print("Для переключения между узлами используйте команду 'switch'")
-        print("Для выхода введите 'exit' или 'q'")
-        
-        interactive_control(network)
+    # Запускаем интерактивное управление
+    print("=== Модель самоорганизующейся P2P-сети ===")
+    print("Доступные команды: info, scan, send, route, nodes, help")
+    print("Для переключения между узлами используйте команду 'switch'")
+    print("Для выхода введите 'exit' или 'q'")
+    
+    interactive_control(network)
 
 if __name__ == "__main__":
     main()
