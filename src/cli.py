@@ -68,7 +68,6 @@ class CLICommandHandler:
 
     def run(self):
         """Основной цикл работы CLI"""
-        print("=== Модель самоорганизующейся P2P-сети ===")
         self._show_help()
         
         while True:
