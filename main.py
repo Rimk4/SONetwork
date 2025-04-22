@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import shutil
 import threading
 import time
 from src.constants import LOG_DIR, FRAMES_DIR, CONFIGS_DIR
@@ -27,6 +28,10 @@ def setup_dirs() -> None:
 
 def main():
     """Основная функция для создания и запуска сети"""
+    # Удаляем папку с логами
+    if os.path.exists(LOG_DIR):
+        shutil.rmtree(LOG_DIR)
+
     # Подготовка директорий
     setup_dirs()
 
