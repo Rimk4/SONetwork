@@ -57,3 +57,13 @@ python3 main.py -l <path-to-config.json>
 ```bash
 python3 src/user.py | python3 main.py
 ```
+  
+- сгенерировать docs
+```bash
+doxygen
+```
+  
+- открыть в браузере
+```bash
+firefox docs/html/index.html
+```
