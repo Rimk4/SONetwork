@@ -201,7 +201,7 @@ class P2PNode(threading.Thread):
         print(f"\nУзел {self.node_id} запускает сканирование...")
         self._send_beacon()
 
-    def cmd_send(self, target_id: str, *message_parts: str):
+    def cmd_send(self, target_id: str, *message_parts: str) -> None:
         """Отправить сообщение другому узлу"""
         try:
             target_node_id = int(target_id)
