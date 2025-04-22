@@ -88,7 +88,7 @@ class P2PNode(threading.Thread):
                 last_beacon = current_time
                 
                 # Дополнительно проверяем отложенные фреймы
-                # self._check_delayed_frames()
+                self._check_delayed_frames()
             
             # 4. Обработка команд управления
             self._process_commands()
