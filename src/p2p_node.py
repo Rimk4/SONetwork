@@ -463,11 +463,10 @@ class P2PNode(threading.Thread):
             self.logger.error(f"Ошибка декодирования payload: {e}")
             return
 
-        target_id = payload_dict['target_id']
         hop_count = payload_dict['hop_count']
         
         # Если мы целевой узел - обновляем таблицу маршрутизации
-        if target_id == self.node_id:
+        if frame.destination_id == self.node_id:
             # Метрика = количеству прыжков
             self._update_routing_table(
                 frame.sender_id,
@@ -477,13 +476,13 @@ class P2PNode(threading.Thread):
             return
         
         # Пересылаем RREP дальше по маршруту
-        if target_id in self.routing_table:
-            next_hop = self.routing_table[target_id].next_hop
+        if frame.destination_id in self.routing_table:
+            next_hop = self.routing_table[frame.destination_id].next_hop
             
             # Обновляем метрику (увеличиваем на 1 прыжок)
             new_rrep = Frame.create_rrep(
                 sender_id=self.node_id,
-                target_id=target_id,
+                target_id=frame.destination_id,
                 hop_count=hop_count + 1
             )
             

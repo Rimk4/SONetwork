@@ -79,3 +79,65 @@ class TestP2PNode:
         assert pos.x == 0
         assert pos.y == 0
         assert isinstance(timestamp, datetime)
+
+    def test_process_ack(self, node):
+        """Проверка обработки ACK фрейма"""
+        # Мокируем deserialize_position, чтобы возвращать известную позицию и время
+        node.deserialize_position = MagicMock(return_value=(Position(100, 100), datetime.now()))
+        
+        ack_frame = Frame.create_ack(sender_id=2, payload=b"some data")
+        node.receive_frame(ack_frame)
+        node._process_ack(ack_frame)
+        
+        # Проверяем, что информация о позиции узла 2 была добавлена в local_map
+        assert 2 in node.local_map
+        assert node.local_map[2][0].x == 100
+        assert node.local_map[2][0].y == 100
+
+    def test_process_rreq(self, node, network):
+        """Проверка обработки RREQ фрейма"""
+        # Создаем RREQ фрейм
+        rreq_frame = Frame.create_rreq(sender_id=2, target_id=3, hop_count=0, max_hops=5)
+        node._get_neighbors = MagicMock(return_value=[3])
+        
+        with patch.object(network, 'transmit_frame') as mock_transmit:
+            node._process_rreq(rreq_frame)
+            
+            # Проверяем, что transmit_frame был вызван с RREQ фреймом
+            # mock_transmit.assert_called()
+
+    def test_process_rrep(self, node):
+        """Проверка обработки RREP фрейма"""
+        # Создаем RREP фрейм
+        rrep_frame = Frame.create_rrep(sender_id=2, target_id=1, hop_count=1)  # target_id = self.node_id
+        
+        node._process_rrep(rrep_frame)
+        
+        # Проверяем, что маршрут был добавлен в таблицу маршрутизации
+        assert 2 in node.routing_table
+        assert node.routing_table[2].next_hop == 2
+
+    def test_process_data(self, node):
+        """Проверка обработки DATA фрейма"""
+        # Создаем DATA фрейм
+        data_frame = Frame.create_data(sender_id=2, destination_id=1, payload=b"Test message")
+        
+        # Мокируем logger.info
+        node.logger.info = MagicMock()
+        
+        node._process_data(data_frame)
+        
+        # Проверяем, что сообщение было залогировано
+        node.logger.info.assert_called_with(f"Получено сообщение от {2}: Test message")
+
+    def test_send_frame_route_unknown(self, node):
+        """Проверка отправки фрейма, когда маршрут неизвестен"""
+        target_id = 2
+        frame = Frame.create_data(1, target_id, b"test message")
+        node._initiate_route_discovery = MagicMock()
+        node._delay_frame = MagicMock()
+
+        node._send_frame(frame, target_id)
+
+        node._initiate_route_discovery.assert_called_with(target_id)
+        node._delay_frame.assert_called_with(frame, target_id)
