@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-def frames_to_video_ffmpeg(input_dir, output_file, fps):
+def frames_to_video_ffmpeg(input_dir, output_file, fps) -> None:
     """
     Использует ffmpeg для склейки кадров (требует установленного ffmpeg)
     

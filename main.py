@@ -6,7 +6,7 @@ from src.constants import LOG_DIR, FRAMES_DIR, CONFIGS_DIR
 from src.cli import interactive_control
 from src.restore_session import *
 
-def setup_dirs():
+def setup_dirs() -> None:
     """Создает папки с .gitignore если не существует"""
     directories = [LOG_DIR, FRAMES_DIR, CONFIGS_DIR]
     for dir in directories:

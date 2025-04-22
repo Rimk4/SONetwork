@@ -22,7 +22,7 @@ def restore_network(config_file: str) -> Optional[NetworkSimulator]:
         return None
     
     # 2. Восстанавливаем узлы
-    def node_creator(node_id, config):
+    def node_creator(node_id, config) -> P2PNode:
         node = P2PNode(
             node_id=node_id,
             position=Position(config["position"]["x"], config["position"]["y"]),

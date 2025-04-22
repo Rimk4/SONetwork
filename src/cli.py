@@ -12,7 +12,7 @@ from src.FrameRecorder import FrameRecorder
 class CLICommandHandler:
     """Класс для обработки команд CLI"""
     
-    def __init__(self, network: 'NetworkSimulator'):
+    def __init__(self, network: 'NetworkSimulator') -> None:
         self.network = network
         self.current_node_id: Optional[int] = next(iter(network.nodes)) if network.nodes else None
         self.recorder = FrameRecorder(network)
@@ -48,12 +48,12 @@ class CLICommandHandler:
         
         return history_file
 
-    def _register_cleanup(self):
+    def _register_cleanup(self) -> None:
         """Регистрация функций очистки при выходе"""
         atexit.register(self._cleanup)
         atexit.register(lambda: readline.write_history_file(self.session_history_file))
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Очистка временных файлов"""
         try:
             os.unlink(self.session_history_file)
@@ -66,7 +66,7 @@ class CLICommandHandler:
         matches = [cmd for cmd in commands if cmd.startswith(text.lower())]
         return matches[state] if state < len(matches) else None
 
-    def run(self):
+    def run(self) -> None:
         """Основной цикл работы CLI"""
         self._show_help()
         
@@ -97,7 +97,7 @@ class CLICommandHandler:
         
         self._shutdown_network()
 
-    def _handle_no_nodes_mode(self):
+    def _handle_no_nodes_mode(self) -> None:
         """Обработка режима когда нет активных узлов"""
         cmd = input("> ").strip()
         if cmd.lower() in ("exit", "q"):
@@ -270,7 +270,7 @@ class CLICommandHandler:
         print("  findroute id - найти маршрут к узлу")
         print("  log level - изменить уровень логгирования")
 
-    def _shutdown_network(self):
+    def _shutdown_network(self) -> None:
         """Корректное завершение работы сети"""
         print("Остановка всех узлов...")
         for node in self.network.nodes.values():

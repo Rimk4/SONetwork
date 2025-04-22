@@ -5,12 +5,12 @@ class SimulatorDateTime(datetime.datetime):
     _real_start = None      # момент запуска (реальное системное время)
 
     @classmethod
-    def set_start_time(cls, start_time: datetime.datetime):
+    def set_start_time(cls, start_time: datetime.datetime) -> None:
         cls._start_time = start_time
         cls._real_start = datetime.datetime.now()
 
     @classmethod
-    def now(cls, tz=None):
+    def now(cls, tz=None) -> None:
         if cls._start_time is None or cls._real_start is None:
             # Если стартовое время не задано — возвращаем обычное текущее время
             return super().now(tz)

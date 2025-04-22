@@ -4,7 +4,7 @@ from threading import Thread
 from src.constants import FRAMES_DIR
 
 class FrameRecorder:
-    def __init__(self, network):
+    def __init__(self, network) -> None:
         self.network = network
         self.recording = False
         self.fps = 1
@@ -13,7 +13,7 @@ class FrameRecorder:
         self.thread = None
         self.output_dir = ""
 
-    def start_recording(self, observer_id=None, fps=1, duration=10):
+    def start_recording(self, observer_id=None, fps=1, duration=10) -> None:
         """Запуск записи последовательности кадров в фоновом режиме"""
         if self.recording:
             print("Запись уже идет!")
@@ -31,7 +31,7 @@ class FrameRecorder:
         self.thread.start()
         print(f"Начата запись {duration} секунд с частотой {fps} FPS в папку '{self.output_dir}'")
 
-    def create_video_command_file(self):
+    def create_video_command_file(self) -> None:
         """Создает файл с командой для генерации видео"""
         command_file = os.path.join(self.output_dir, "create_video.sh")
         
@@ -44,7 +44,7 @@ class FrameRecorder:
         print(f"Командный файл создан: {command_file}")
         print(f"Нажать ↵")
 
-    def _record_frames(self):
+    def _record_frames(self) -> None:
         """Фоновый процесс записи кадров"""
         start_time = time.time()
         frame_count = 0
@@ -63,7 +63,7 @@ class FrameRecorder:
         print(f"Запись завершена. Сохранено {frame_count} кадров")
         self.create_video_command_file()
 
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         """Остановка записи"""
         if self.recording:
             self.recording = False

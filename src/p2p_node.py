@@ -15,7 +15,7 @@ class P2PNode(threading.Thread):
     """Класс, реализующий узел P2P-сети с улучшенной маршрутизацией"""
     
     def __init__(self, node_id: int, position: Position, network: 'NetworkSimulator', 
-                 velocity: float = 0.0, direction: float = 0.0, bitrate: int = 5000):
+                 velocity: float = 0.0, direction: float = 0.0, bitrate: int = 5000) -> None:
         super().__init__(daemon=True)
         self.node_id = node_id
         self.state = NodeState(position, velocity, direction)
@@ -55,7 +55,7 @@ class P2PNode(threading.Thread):
         
         print(f"P2PNode: Создан узел {self.node_id} на позиции ({position.x:.1f}, {position.y:.1f})")
 
-    def _setup_logger(self):
+    def _setup_logger(self) -> None:
         """Настройка логгера для узла"""
         self.logger = logging.getLogger(f"Node-{self.node_id}")
         self.logger.setLevel(logging.DEBUG)
@@ -69,7 +69,7 @@ class P2PNode(threading.Thread):
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
 
-    def run(self):
+    def run(self) -> None:
         """Основной цикл работы узла"""
         last_beacon = datetime.now()
         
@@ -96,7 +96,7 @@ class P2PNode(threading.Thread):
             # 5. Короткая пауза
             time.sleep(0.1)
 
-    def _cleanup_expired_entries(self, current_time: datetime):
+    def _cleanup_expired_entries(self, current_time: datetime) -> None:
         """Очистка устаревших записей в таблицах"""
         # Очистка локальной карты
         expired_nodes = [
@@ -121,14 +121,14 @@ class P2PNode(threading.Thread):
             del self.routing_table[node_id]
             self.logger.debug(f"Маршрут к узлу {node_id} удален (истек TTL)")
 
-    def _update_position(self, current_time: datetime):
+    def _update_position(self, current_time: datetime) -> None:
         """Обновление позиции узла"""
         delta_t = (current_time - self.state.last_update).total_seconds()
         if delta_t > 0:
             self.state.move(delta_t)
             self.local_map[self.node_id] = (self.state.position, current_time)
 
-    def _send_beacon(self):
+    def _send_beacon(self) -> None:
         """Рассылка beacon-сообщений соседям"""
         beacon = Frame.create_beacon(
             sender_id=self.node_id,
@@ -142,7 +142,7 @@ class P2PNode(threading.Thread):
         
         self.logger.debug(f"Отправлен BEACON всем узлам")
 
-    def _check_delayed_frames(self):
+    def _check_delayed_frames(self) -> None:
         """Проверка отложенных фреймов (для которых не было маршрута)"""
         completed = []
         
@@ -160,7 +160,7 @@ class P2PNode(threading.Thread):
         for target_id in completed:
             del self.delayed_frames[target_id]
 
-    def _process_commands(self):
+    def _process_commands(self) -> None:
         """Обработка команд из очереди"""
         try:
             cmd = self.message_queue.get_nowait()
@@ -168,7 +168,7 @@ class P2PNode(threading.Thread):
         except queue.Empty:
             pass
     
-    def process_command(self, cmd: str):
+    def process_command(self, cmd: str) -> None:
         """Обработка команды управления"""
         parts = cmd.split()
         if not parts:
@@ -186,7 +186,7 @@ class P2PNode(threading.Thread):
         else:
             print(f"Неизвестная команда: {command}. Введите 'help' для списка команд.")
 
-    def cmd_info(self):
+    def cmd_info(self) -> None:
         """Вывод информации о текущем узле"""
         print(f"\n=== Информация об узле {self.node_id} ===")
         print(f"Позиция: ({self.state.position.x:.1f}, {self.state.position.y:.1f})")
@@ -194,9 +194,9 @@ class P2PNode(threading.Thread):
         print(f"Битрейт: {self.bitrate} бит/с")
         print(f"Известно узлов: {len(self.local_map)}")
         print(f"Маршрутов в таблице: {len(self.routing_table)}")
-        # print(f"Отложенных фреймов: {sum(len(f) for f in self.delayed_frames.values())}")
+        print(f"Отложенных фреймов: {sum(len(f) for f in self.delayed_frames.values())}")
 
-    def cmd_scan(self):
+    def cmd_scan(self) -> None:
         """Инициировать сканирование соседей"""
         print(f"\nУзел {self.node_id} запускает сканирование...")
         self._send_beacon()
@@ -222,7 +222,7 @@ class P2PNode(threading.Thread):
         except ValueError:
             print("Неверный ID узла!")
     
-    def _send_frame(self, frame: Frame, target_id: int):
+    def _send_frame(self, frame: Frame, target_id: int) -> None:
         """Отправка фрейма с обработкой маршрутизации"""
         if target_id in self.routing_table:
             # Маршрут известен - отправляем
@@ -239,14 +239,14 @@ class P2PNode(threading.Thread):
             self._initiate_route_discovery(target_id)
             self._delay_frame(frame, target_id)
 
-    def _delay_frame(self, frame: Frame, target_id: int):
+    def _delay_frame(self, frame: Frame, target_id: int) -> None:
         """Добавление фрейма в очередь отложенных"""
         if target_id not in self.delayed_frames:
             self.delayed_frames[target_id] = []
         self.delayed_frames[target_id].append(frame)
         self.logger.info(f"Фрейм для {target_id} отложен (ожидание маршрута)")
 
-    def _initiate_route_discovery(self, target_id: int):
+    def _initiate_route_discovery(self, target_id: int) -> None:
         """Инициирование поиска маршрута (AODV-like)"""
         if target_id in self.local_map:
             # Узел в локальной карте, но не в таблице маршрутизации
@@ -273,7 +273,7 @@ class P2PNode(threading.Thread):
         
         return neighbors
 
-    def cmd_show_routes(self):
+    def cmd_show_routes(self) -> None:
         """Показать таблицу маршрутизации"""
         print("\n=== Таблица маршрутизации ===")
         if not self.routing_table:
@@ -285,7 +285,7 @@ class P2PNode(threading.Thread):
             expires_in = (entry.expire_time - datetime.now()).total_seconds()
             print(f"{node_id:<8}{entry.next_hop:<12}{entry.metric:<10.1f}{expires_in:.1f} сек")
 
-    def cmd_show_nodes(self):
+    def cmd_show_nodes(self) -> None:
         """Показать известные узлы"""
         print("\n=== Известные узлы ===")
         if not self.local_map:
@@ -298,7 +298,7 @@ class P2PNode(threading.Thread):
             coords = f'({pos.x:.1f}, {pos.y:.1f})'
             print(f"{node_id:<10}{coords:<25}{age:.1f} сек назад")
 
-    def cmd_find_route(self, target_id: str):
+    def cmd_find_route(self, target_id: str) -> None:
         """Найти маршрут к указанному узлу"""
         try:
             target_node_id = int(target_id)
@@ -321,7 +321,7 @@ class P2PNode(threading.Thread):
         except ValueError:
             print("Неверный ID узла!")
     
-    def cmd_help(self):
+    def cmd_help(self) -> None:
         """Показать справку по командам"""
         print("\n=== Доступные команды ===")
         print("info - информация об узле")
@@ -337,7 +337,7 @@ class P2PNode(threading.Thread):
         print("findroute <id> - найти маршрут к узлу")
         print("help - показать эту справку")
 
-    def cmd_set_loglvl(self, level: str):
+    def cmd_set_loglvl(self, level: str) -> None:
         """Установка уровня логгирования"""
         level = level.upper()
         levels = {
@@ -354,7 +354,7 @@ class P2PNode(threading.Thread):
         else:
             print("Неверный уровень. Допустимые: DEBUG, INFO, WARNING, ERROR, CRITICAL")
 
-    def receive_frame(self, frame: Frame):
+    def receive_frame(self, frame: Frame) -> None:
         """Обработка входящего фрейма"""
         self.logger.debug(f"Получен фрейм {frame.type} от {frame.sender_id}")
         
@@ -380,7 +380,7 @@ class P2PNode(threading.Thread):
         else:
             self.logger.warning(f"Неизвестный тип фрейма: {frame.type}")
 
-    def _process_beacon(self, frame: Frame):
+    def _process_beacon(self, frame: Frame) -> None:
         """Обработка BEACON фрейма"""
         # Отправляем подтверждение
         ack = Frame.create_ack(
@@ -392,12 +392,12 @@ class P2PNode(threading.Thread):
         # Обновляем таблицу маршрутизации
         self._update_routing_table(frame.sender_id, frame.sender_id, 1.0)
 
-    def _process_ack(self, frame: Frame):
+    def _process_ack(self, frame: Frame) -> None:
         """Обработка ACK фрейма"""
         # Просто обновляем таблицу маршрутизации
         self._update_routing_table(frame.sender_id, frame.sender_id, 1.0)
 
-    def _process_rreq(self, frame: Frame):
+    def _process_rreq(self, frame: Frame) -> None:
         """Обработка Route Request (RREQ)"""
         try:
             payload_dict = json.loads(frame.payload.decode())
@@ -455,7 +455,7 @@ class P2PNode(threading.Thread):
             if neighbor_id != frame.sender_id:
                 self.network.transmit_frame(new_rreq, self.node_id, neighbor_id)
 
-    def _process_rrep(self, frame: Frame):
+    def _process_rrep(self, frame: Frame) -> None:
         """Обработка Route Reply (RREP)"""
         try:
             payload_dict = json.loads(frame.payload.decode())
@@ -495,7 +495,7 @@ class P2PNode(threading.Thread):
                 hop_count
             )
 
-    def _process_data(self, frame: Frame):
+    def _process_data(self, frame: Frame) -> None:
         """Обработка DATA фрейма"""
         # Если фрейм адресован нам - обрабатываем
         if frame.destination_id == self.node_id:
@@ -511,7 +511,7 @@ class P2PNode(threading.Thread):
         else:
             self.logger.warning(f"Неизвестный маршрут для {frame.destination_id}, фрейм отброшен")
 
-    def _update_routing_table(self, node_id: int, next_hop: int, metric: float):
+    def _update_routing_table(self, node_id: int, next_hop: int, metric: float) -> None:
         """Обновление таблицы маршрутизации"""
         now = datetime.now()
         expire_time = now + timedelta(seconds=self.route_ttl)
@@ -543,11 +543,11 @@ class P2PNode(threading.Thread):
         x, y, timestamp = float(parts[0]), float(parts[1]), float(parts[2])
         return Position(x, y), datetime.fromtimestamp(timestamp)
     
-    def send_command(self, command: str):
+    def send_command(self, command: str) -> None:
         """Отправка команды на узел для выполнения"""
         self.message_queue.put(command)
     
-    def stop(self):
+    def stop(self) -> None:
         """Остановка работы узла"""
         self.running = False
         self.logger.info("Узел остановлен")

@@ -2,6 +2,7 @@ import time
 from typing import List, Tuple
 
 class CommandGenerator:
+    """Класс генератора команд, вводимых мнимым пользователем"""
     def _generate_command_sequence(self) -> List[Tuple[str, float]]:
         """Генерирует последовательность всех возможных команд с задержками"""
         return [

@@ -34,7 +34,7 @@ class NodeState:
     direction: float = 0.0  # угол в радианах (0 - восток, π/2 - север)
     last_update: datetime = field(default_factory=datetime.now)
     
-    def move(self, delta_t: float):
+    def move(self, delta_t: float) -> None:
         """Обновление позиции узла с учётом движения"""
         dx = self.velocity * math.cos(self.direction) * delta_t
         dy = self.velocity * math.sin(self.direction) * delta_t
@@ -78,7 +78,7 @@ class Frame:
         payload: bytes = b'',
         ttl: int = 10,
         **kwargs
-    ):
+    ) -> None:
         self.type = frame_type
         self.sender_id = sender_id
         self.destination_id = destination_id
@@ -91,7 +91,7 @@ class Frame:
         # Автоматически вычисляем CRC при создании
         self.crc = self._calculate_crc()
     
-    def __str__(self):
+    def __str__(self) -> str:
         return (f"Frame(type={self.type}, sender={self.sender_id}, "
                 f"dest={self.destination_id}, hops={self.hop_count}, "
                 f"size={len(self.payload)} bytes)")

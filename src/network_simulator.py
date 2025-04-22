@@ -16,7 +16,7 @@ import os
 class NetworkSimulator:
     """Класс для симуляции радиоканала"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: Dict[int, 'P2PNode'] = {}
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
@@ -29,7 +29,7 @@ class NetworkSimulator:
             "total": 0
         }
 
-    def _setup_logger(self):
+    def _setup_logger(self) -> None:
         """Настройка логгера для симулятора"""
         self.logger = logging.getLogger('NetworkSimulator')
         self.logger.setLevel(logging.INFO)
@@ -42,7 +42,7 @@ class NetworkSimulator:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def add_node(self, node: 'P2PNode'):
+    def add_node(self, node: 'P2PNode') -> None:
         """Добавление узла в сеть с проверкой уникальности ID"""
         if node.node_id in self.nodes:
             raise ValueError(f"Узел с ID {node.node_id} уже существует")
@@ -168,7 +168,7 @@ class NetworkSimulator:
         
         return (transmission_time + propagation_delay) * random_factor
 
-    def process_events(self):
+    def process_events(self) -> None:
         """Обработка всех запланированных событий"""
         # Обновляем текущее время симуляции
         self.current_time = datetime.now()
