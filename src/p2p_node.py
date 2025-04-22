@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 import queue
@@ -398,8 +399,14 @@ class P2PNode(threading.Thread):
 
     def _process_rreq(self, frame: Frame):
         """Обработка Route Request (RREQ)"""
-        target_id = frame.payload['target_id']
-        hop_count = frame.payload['hop_count'] + 1
+        try:
+            payload_dict = json.loads(frame.payload.decode())
+        except Exception as e:
+            self.logger.error(f"Ошибка декодирования payload: {e}")
+            return
+
+        target_id = payload_dict['target_id']
+        hop_count = payload_dict['hop_count'] + 1
         
         # Если это наш RREQ (отправили сами) - игнорируем
         if frame.sender_id == self.node_id:
@@ -409,7 +416,7 @@ class P2PNode(threading.Thread):
         if target_id == self.node_id:
             rrep = Frame.create_rrep(
                 sender_id=self.node_id,
-                target_id=frame.payload['sender_id'],
+                target_id=frame.sender_id,
                 hop_count=hop_count
             )
             
@@ -422,7 +429,7 @@ class P2PNode(threading.Thread):
         if target_id in self.routing_table:
             rrep = Frame.create_rrep(
                 sender_id=self.node_id,
-                target_id=frame.payload['sender_id'],
+                target_id=frame.sender_id,
                 hop_count=hop_count + self.routing_table[target_id].metric
             )
             
@@ -431,16 +438,16 @@ class P2PNode(threading.Thread):
             return
         
         # Если превышено максимальное число прыжков - отбрасываем
-        if hop_count >= frame.payload['max_hops']:
+        if hop_count >= payload_dict['max_hops']:
             self.logger.debug(f"Отброшен RREQ для {target_id} (max_hops достигнут)")
             return
         
         # Пересылаем RREQ дальше
         new_rreq = Frame.create_rreq(
-            sender_id=frame.payload['sender_id'],
+            sender_id=frame.sender_id,
             target_id=target_id,
             hop_count=hop_count,
-            max_hops=frame.payload['max_hops']
+            max_hops=payload_dict['max_hops']
         )
         
         # Рассылаем всем соседям, кроме отправителя
@@ -450,8 +457,14 @@ class P2PNode(threading.Thread):
 
     def _process_rrep(self, frame: Frame):
         """Обработка Route Reply (RREP)"""
-        target_id = frame.payload['target_id']
-        hop_count = frame.payload['hop_count']
+        try:
+            payload_dict = json.loads(frame.payload.decode())
+        except Exception as e:
+            self.logger.error(f"Ошибка декодирования payload: {e}")
+            return
+
+        target_id = payload_dict['target_id']
+        hop_count = payload_dict['hop_count']
         
         # Если мы целевой узел - обновляем таблицу маршрутизации
         if target_id == self.node_id:
