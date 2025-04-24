@@ -14,7 +14,7 @@ import logging
 import os
 
 class NetworkSimulator:
-    """Класс для симуляции радиоканала"""
+    """Класс для симуляции сети радиоканалов"""
 
     def __init__(self) -> None:
         self.nodes: Dict[int, 'P2PNode'] = {}
