@@ -8,6 +8,8 @@ from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
 from PySide2.QtCore import Qt, QThread, Signal, Slot
 from PySide2.QtGui import QTextCursor, QPixmap
 from PySide2.QtWidgets import QSizePolicy
+from src.p2p_node import P2PNode
+from src.models import Position
 
 class NetworkThread(QThread):
     update_signal = Signal(str)
@@ -56,6 +58,38 @@ class P2PGUI(QMainWindow):
         node_layout.addWidget(QLabel("Nodes:"))
         node_layout.addWidget(self.node_list)
         self.node_list.currentItemChanged.connect(self.on_node_selected)
+
+        node_layout.addWidget(QLabel("New Node Parameters:"))
+
+        # Node ID
+        self.node_id_spin = QSpinBox()
+        self.node_id_spin.setRange(1, 1000000)
+        self.node_id_spin.setValue(1)
+        node_layout.addWidget(QLabel("Node ID:"))
+        node_layout.addWidget(self.node_id_spin)
+
+        # Velocity
+        self.velocity_spin = QDoubleSpinBox()
+        self.velocity_spin.setRange(0, 10000)
+        self.velocity_spin.setDecimals(2)
+        self.velocity_spin.setValue(0.0)
+        node_layout.addWidget(QLabel("Velocity:"))
+        node_layout.addWidget(self.velocity_spin)
+
+        # Direction (градусы)
+        self.direction_spin = QDoubleSpinBox()
+        self.direction_spin.setRange(0, 360)
+        self.direction_spin.setDecimals(2)
+        self.direction_spin.setValue(0.0)
+        node_layout.addWidget(QLabel("Direction (degrees):"))
+        node_layout.addWidget(self.direction_spin)
+
+        # Bitrate
+        self.bitrate_spin = QSpinBox()
+        self.bitrate_spin.setRange(1, 1000000000)
+        self.bitrate_spin.setValue(5000)
+        node_layout.addWidget(QLabel("Bitrate:"))
+        node_layout.addWidget(self.bitrate_spin)
 
         self.add_node_btn = QPushButton("Add Node")
         self.add_node_btn.clicked.connect(self.add_node)
@@ -182,6 +216,30 @@ class P2PGUI(QMainWindow):
     def add_node(self):
         # Implement node addition logic
         self.update_console("Adding new node...")
+        node_id = self.node_id_spin.value()
+        velocity = self.velocity_spin.value()
+        direction = self.direction_spin.value()
+        bitrate = self.bitrate_spin.value()
+        x = self.x_spin.value()
+        y = self.y_spin.value()
+
+        position = Position(x, y)  # Предполагается, что Position — класс с координатами
+
+        new_node = P2PNode(
+            node_id=node_id,
+            position=position,
+            network=self.network,
+            bitrate=bitrate,
+            velocity=velocity,
+            direction=direction
+        )
+
+        try:
+            self.network.add_node(new_node)
+            self.update_console(f"Добавлен узел {node_id} с позицией ({x}, {y}), скоростью {velocity}, направлением {direction}, bitrate {bitrate}")
+        except Exception as e:
+            self.update_console(f"Ошибка добавления узла: {str(e)}")
+
         self.update_node_list()
 
     def kill_node(self):
