@@ -214,7 +214,6 @@ class P2PGUI(QMainWindow):
             self.update_console("No active node selected")
 
     def add_node(self):
-        # Implement node addition logic
         self.update_console("Adding new node...")
         node_id = self.node_id_spin.value()
         velocity = self.velocity_spin.value()
@@ -223,7 +222,7 @@ class P2PGUI(QMainWindow):
         x = self.x_spin.value()
         y = self.y_spin.value()
 
-        position = Position(x, y)  # Предполагается, что Position — класс с координатами
+        position = Position(x, y)
 
         new_node = P2PNode(
             node_id=node_id,
