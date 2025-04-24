@@ -324,18 +324,14 @@ class P2PNode(threading.Thread):
     def cmd_help(self) -> None:
         """Показать справку по командам"""
         print("\n=== Доступные команды ===")
-        print("info - информация об узле")
-        print("scan - сканировать соседей")
-        print("send <id> <msg> - отправить сообщение")
-        print("route - показать таблицу маршрутизации")
-        print("nodes - показать известные узлы")
-        print("log <level> - изменить уровень логгирования (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
-        print("record [fps] [duration] - начать запись (например: record 5 10 - 5 FPS в течение 10 сек)")
-        print("stop - остановить запись досрочно")
-        print("visualize - скриншот текущей сети от лица текущего узла")
-        print("savecfg - сохранить текущую конфигурацию")
-        print("findroute <id> - найти маршрут к узлу")
-        print("help - показать эту справку")
+        print("  info - информация об узле")
+        print("  scan - сканировать соседей")
+        print("  send <id> <msg> - отправить сообщение")
+        print("  route - показать таблицу маршрутизации")
+        print("  nodes - показать известные узлы")
+        print("  log <level> - изменить уровень логгирования (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+        print("  findroute <id> - найти маршрут к узлу")
+        print("  help - показать эту справку")
 
     def cmd_set_loglvl(self, level: str) -> None:
         """Установка уровня логгирования"""
