@@ -245,8 +245,8 @@ class P2PGUI(QMainWindow):
         selected = self.node_list.currentItem()
         if selected:
             node_id = int(selected.text().split()[-1])
-            # Implement node killing logic
             self.update_console(f"Killing node {node_id}...")
+            self.network.kill_node(node_id)
             self.update_node_list()
 
     def move_node(self):
