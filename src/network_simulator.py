@@ -118,7 +118,7 @@ class NetworkSimulator:
         # Проверка расстояния
         distance = sender.state.position.distance_to(receiver.state.position)
         if distance > R:
-            sender.logger.debug(f"Узел {receiver_id} вне зоны покрытия (расстояние {distance:.1f} м > {R} м)")
+            self.logger.debug(f"Узел {receiver_id} вне зоны покрытия (расстояние {distance:.1f} м > {R} м)")
             self.transmission_stats["failed_distance"] += 1
             return False
 
@@ -193,7 +193,7 @@ class NetworkSimulator:
                 processed += 1
 
                 # Логируем факт доставки (уровень DEBUG)
-                self.nodes[receiver_id].logger.debug(
+                self.logger.debug(
                     f"Фрейм {frame.type} доставлен узлу {receiver_id}"
                 )
         
@@ -263,7 +263,10 @@ class NetworkSimulator:
             },
             "nodes": {
                 node_id: {
-                    "position": dict(node.state.position),
+                    "position": {
+                        "x": node.state.position.x,
+                        "y": node.state.position.y
+                    },
                     "bitrate": node.bitrate,
                     "state": {
                         "velocity": node.state.velocity,
