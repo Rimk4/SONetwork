@@ -65,4 +65,4 @@ clean-all:
 	rm -rf $(OUT_BASE)
 	rm -rf $(VENV_DIR)
 
-.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs docs-open clean-all
+.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs clean-all
