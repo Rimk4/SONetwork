@@ -321,9 +321,10 @@ class P2PNode(threading.Thread):
         except ValueError:
             print("Неверный ID узла!")
     
-    def cmd_help(self) -> None:
-        """Показать справку по командам"""
-        print("\n=== Доступные команды ===")
+    @classmethod
+    def cmd_help(cls) -> None:
+        """Показать справку по командам узлов"""
+        print("\nКоманды узлов:")
         print("  info - информация об узле")
         print("  scan - сканировать соседей")
         print("  send <id> <msg> - отправить сообщение")

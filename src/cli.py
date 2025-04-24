@@ -249,7 +249,7 @@ class CLICommandHandler:
     def _show_help(self, *args):
         """Показать справку по командам"""
         print("\n=== Доступные команды ===")
-        print("Сетевые команды:")
+        print("\nСетевые команды:")
         print("  switch [id] - переключиться на узел")
         print("  kill - удалить текущий узел")
         print("  addnode [x] [y] - добавить новый узел")
@@ -261,14 +261,8 @@ class CLICommandHandler:
         print("  savecfg [filename] - сохранить конфигурацию")
         print("  help - показать эту справку")
         print("  exit/q - выход")
-        print("\nКоманды узлов (вводятся после выбора узла):")
-        print("  info - информация об узле")
-        print("  scan - сканировать соседей")
-        print("  send id message - отправить сообщение")
-        print("  route - показать таблицу маршрутизации")
-        print("  nodes - показать известные узлы")
-        print("  findroute id - найти маршрут к узлу")
-        print("  log level - изменить уровень логгирования")
+        from src.p2p_node import P2PNode
+        P2PNode.cmd_help()
 
     def _shutdown_network(self) -> None:
         """Корректное завершение работы сети"""
