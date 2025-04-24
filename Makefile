@@ -64,13 +64,14 @@ docs: ## Сгенерировать документацию с помощью d
 
 # Очистка виртуального окружения и отчетов
 clean-all: ## Очистить виртуальное окружение и все отчеты
-	rm -rf `find . -name __pycache__`
-	rm -rf .pytest_cache
-	rm -rf htmlcov
-	rm -rf docs
-	rm -rf .coverage
-	rm -rf $(OUT_BASE)
-	rm -rf $(VENV_DIR)
+	@printf "$(CYAN)CLEAN ALL$(NC)\n"
+	@rm -rf `find . -name __pycache__`
+	@rm -rf .pytest_cache
+	@rm -rf htmlcov
+	@rm -rf docs
+	@rm -rf .coverage
+	@rm -rf $(OUT_BASE)
+	@rm -rf $(VENV_DIR)
 
 # Цель help — выводит список команд с описаниями и подсветкой
 help:
