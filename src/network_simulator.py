@@ -231,6 +231,21 @@ class NetworkSimulator:
             self.logger.error(f"Ошибка удаления узла {node_id}: {str(e)}")
             return False
 
+    def kill_node(self, node_id: int) -> None:
+        if len(self.nodes) <= 1:
+            print("Нельзя удалить последний узел в сети!")
+            return
+        
+        print(f"Удаляем узел {node_id}...")
+        node = self.nodes[node_id]
+        node.stop()
+        node.join()
+        self.remove_node(node_id)
+        
+        # Переключаемся на другой доступный узел
+        self.current_node_id = next(iter(self.nodes))
+        print(f"Переключено на узел {self.current_node_id}")
+
     def get_network_stats(self) -> Dict[str, Any]:
         """Возвращает статистику работы сети"""
         return {

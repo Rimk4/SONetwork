@@ -2,6 +2,7 @@
 import atexit
 import math
 import os
+import random
 import readline
 import tempfile
 import time
@@ -147,19 +148,7 @@ class CLICommandHandler:
 
     def _kill_node(self, *args):
         """Удаление текущего узла"""
-        if len(self.network.nodes) <= 1:
-            print("Нельзя удалить последний узел в сети!")
-            return
-        
-        print(f"Удаляем узел {self.current_node_id}...")
-        node = self.network.nodes[self.current_node_id]
-        node.stop()
-        node.join()
-        self.network.remove_node(self.current_node_id)
-        
-        # Переключаемся на другой доступный узел
-        self.current_node_id = next(iter(self.network.nodes))
-        print(f"Переключено на узел {self.current_node_id}")
+        return self.network.kill_node(int(args[0]))
 
     def _visualize(self, *args):
         """Визуализация сети"""
