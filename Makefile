@@ -43,8 +43,12 @@ coverage-html: install ## Запустить тесты с покрытием и
 	$(PYTEST) -v --cov=src --cov-report=html
 
 # Запуск симуляции с автоматической генерацией сети
-run: install ## Запустить симуляцию (main.py)
+run: install ## Запустить симуляцию (main.py), запустить в GUI (указать gui=1)
+ifneq ($(gui), 1)
 	$(PYTHON) main.py
+else
+	$(PYTHON) main.py --gui
+endif
 
 # Запуск с загрузкой сети из конфига
 # Использование: make run-load config=<путь_к_файлу.json>

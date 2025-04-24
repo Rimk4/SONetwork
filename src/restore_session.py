@@ -1,18 +1,7 @@
 from src.network_generator import *
 from typing import Optional
-import argparse
 from datetime import datetime
 
-def parse_args():
-    """Парсит аргументы командной строки"""
-    parser = argparse.ArgumentParser(description="Модель самоорганизующейся P2P-сети")
-    parser.add_argument(
-        "-l", "--load",
-        type=str,
-        help="Путь к файлу конфигурации для загрузки сети",
-        default=None
-    )
-    return parser.parse_args()
 
 def restore_network(config_file: str) -> Optional[NetworkSimulator]:
     """Полное восстановление сети из конфигурационного файла"""
