@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shutil
+import argparse
 import threading
 import time
 from src.constants import LOG_DIR, FRAMES_DIR, CONFIGS_DIR
@@ -26,11 +27,31 @@ def setup_dirs() -> None:
         except Exception as e:
             print(f"Ошибка при создании папки {dir}: {e}")
 
-def main():
+def parse_args():
+    """Парсит аргументы командной строки"""
+    parser = argparse.ArgumentParser(description="Модель самоорганизующейся P2P-сети")
+    parser.add_argument(
+        "-l", "--load",
+        type=str,
+        help="Путь к файлу конфигурации для загрузки сети",
+        default=None
+    )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Запустить приложение с графическим интерфейсом"
+    )
+    return parser.parse_args()
+
+def startNetwork() -> NetworkSimulator:
     """Основная функция для создания и запуска сети"""
     # Удаляем папку с логами
     if os.path.exists(LOG_DIR):
         shutil.rmtree(LOG_DIR)
+    
+    # Удаляем папку с фреймами
+    if os.path.exists(FRAMES_DIR):
+        shutil.rmtree(FRAMES_DIR)
 
     # Подготовка директорий
     setup_dirs()
@@ -54,8 +75,14 @@ def main():
     print("Доступные команды: info, scan, send, route, nodes, help")
     print("Для переключения между узлами используйте команду 'switch'")
     print("Для выхода введите 'exit' или 'q'")
-    
-    interactive_control(network)
+
+    return network    
 
 if __name__ == "__main__":
-    main()
+    network = startNetwork()
+    if parse_args().gui:
+        from gui import start_gui
+        start_gui(network)
+    else:
+        # Существующая CLI-логика
+        interactive_control(network)

@@ -46,6 +46,10 @@ coverage-html: install ## Запустить тесты с покрытием и
 run: install ## Запустить симуляцию (main.py)
 	$(PYTHON) main.py
 
+# Запуск в GUI
+run-gui: install ## Запустить в GUI
+	$(PYTHON) main.py --gui
+
 # Запуск с загрузкой сети из конфига
 # Использование: make run-load config=<путь_к_файлу.json>
 run-load: install ## Запустить с загрузкой сети из config (указать config)
@@ -53,6 +57,13 @@ ifndef config
 	$(error Пожалуйста, укажите config, например: make run-load config=config.json)
 endif
 	$(PYTHON) main.py -l $(config)
+
+# Запуск в GUI с загрузкой сети из конфига
+run-gui-load: install ## Запустить в GUI с загрузкой сети из config (указать config)
+ifndef config
+	$(error Пожалуйста, укажите config, например: make run-gui-load config=config.json)
+endif
+	$(PYTHON) main.py --gui -l $(config)
 
 # Запуск с подменой терминала мнимым пользователем
 run-user: install ## Запустить с подменой терминала мнимым пользователем
@@ -90,4 +101,4 @@ help:
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}'
 
-.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs clean-all clean-cache clean-out help
+.PHONY: venv install test test-single coverage-term coverage-html run run-gui run-load run-gui-load run-user docs clean-all clean-cache clean-out help

@@ -52,7 +52,7 @@ class FrameRecorder:
         while self.recording and (time.time() - start_time) < self.duration:
             frame_time = time.time()
             frame_path = os.path.join(self.output_dir, f"frame_{frame_count:04d}.png")
-            self.network.visualize(observer_id=self.observer_id, frame_name=frame_path)
+            self.network.screenshot(observer_id=self.observer_id, frame_name=frame_path)
 
             frame_count += 1
             sleep_time = (1/self.fps) - (time.time() - frame_time)

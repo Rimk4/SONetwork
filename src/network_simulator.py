@@ -49,7 +49,7 @@ class NetworkSimulator:
         self.nodes[node.node_id] = node
         self.logger.info(f"Добавлен узел {node.node_id} на позиции ({node.state.position.x:.1f}, {node.state.position.y:.1f})")
 
-    def visualize(self, observer_id: Optional[int] = None, frame_name: Optional[str] = None) -> str:
+    def screenshot(self, observer_id: Optional[int] = None, frame_name: Optional[str] = None) -> str:
         """Визуализация сети с узлами, их соединениями и выделением зоны покрытия"""
         timestamp = self.start_time.strftime("%Y%m%d_%H%M%S")
         output_dir = Path(f"{FRAMES_DIR}/network_frames_{timestamp}")
