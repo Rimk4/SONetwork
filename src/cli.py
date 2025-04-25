@@ -205,14 +205,7 @@ class CLICommandHandler:
             y = float(args[1])
             node_id = int(args[2]) if len(args) > 2 else self.current_node_id
             
-            if node_id not in self.network.nodes:
-                print("Узел с таким ID не найден")
-                return
-                
-            node = self.network.nodes[node_id]
-            node.state.position = Position(x, y)
-            print(f"Узел {node_id} перемещен в ({x:.1f}, {y:.1f})")
-            
+            self.network.move_node(node_id, Position(x, y))
         except (ValueError, IndexError):
             print("Использование: moveto x y [node_id]")
 

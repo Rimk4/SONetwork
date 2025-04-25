@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Dict, Optional, Any
 from pathlib import Path
 from src.SimulatorDateTime import SimulatorDateTime as datetime
-from src.models import Frame
+from src.models import Frame, Position
 from src.constants import CONFIGS_DIR, R, FRAMES_DIR, LOG_DIR
 import matplotlib.pyplot as plt
 import time
@@ -245,6 +245,16 @@ class NetworkSimulator:
         # Переключаемся на другой доступный узел
         self.current_node_id = next(iter(self.nodes))
         print(f"Переключено на узел {self.current_node_id}")
+    
+    def move_node(self, node_id: int, position: Position):
+        if node_id not in self.nodes:
+            self.logger.info("Узел с таким ID не найден")
+            return
+            
+        node = self.nodes[node_id]
+        node.state.position = position
+        self.logger.info(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
+        print(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
 
     def get_network_stats(self) -> Dict[str, Any]:
         """Возвращает статистику работы сети"""
