@@ -253,8 +253,9 @@ class P2PGUI(QMainWindow):
         x = self.x_spin.value()
         y = self.y_spin.value()
         if self.current_node_id:
-            # Implement node movement logic
-            self.update_console(f"Moving node {self.current_node_id} to ({x}, {y})")
+            self.update_console(f"Moving node...")
+            self.network.move_node(self.current_node_id, Position(x, y))
+            self.update_console(f"Moved node {self.current_node_id} to ({x}, {y})")
 
     def visualize(self):
         # Путь к изображению (замените на актуальный путь)
