@@ -135,12 +135,12 @@ class P2PNode(threading.Thread):
             payload=self.serialize_position()
         )
         
+        neighbours = self._get_neighbors()
         # Рассылка beacon всем известным узлам
-        for node_id in self.network.nodes:
-            if node_id != self.node_id:
-                self.network.transmit_frame(beacon, self.node_id, node_id)
+        for node_id in neighbours:
+            self.network.transmit_frame(beacon, self.node_id, node_id)
         
-        self.logger.debug(f"Отправлен BEACON всем узлам")
+        self.logger.debug(f"Отправлен BEACON узлам {','.join(map(str, neighbours))}")
 
     def _check_delayed_frames(self) -> None:
         """Проверка отложенных фреймов (для которых не было маршрута)"""
