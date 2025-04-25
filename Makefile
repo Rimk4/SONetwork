@@ -101,4 +101,4 @@ help:
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}'
 
-.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs clean-all clean-cache clean-out help
+.PHONY: venv install test test-single coverage-term coverage-html run run-gui run-load run-gui-load run-user docs clean-all clean-cache clean-out help
