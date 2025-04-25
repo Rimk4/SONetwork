@@ -84,10 +84,21 @@ clean-all: ## Очистить виртуальное окружение и вс
 	@rm -rf $(OUT_BASE)
 	@rm -rf $(VENV_DIR)
 
+# Очистка кэша
+clean-cache: ## Очистить кэш
+	@printf "$(CYAN)CLEAN CACHE$(NC)\n"
+	@rm -rf `find . -name __pycache__`
+	@rm -rf .pytest_cache
+
+# Очистка выходных файлов
+clean-out: ## Очистить выходные файлы
+	@printf "$(CYAN)CLEAN OUT DIRECTORY$(NC)\n"
+	@rm -rf $(OUT_BASE)
+
 # Цель help — выводит список команд с описаниями и подсветкой
 help:
 	@printf "$(CYAN)Доступные команды Makefile для проекта SONetwork:$(NC)\n"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}'
 
-.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs clean-all help
+.PHONY: venv install test test-single coverage-term coverage-html run run-load run-user docs clean-all clean-cache clean-out help
