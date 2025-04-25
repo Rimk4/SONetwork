@@ -98,7 +98,7 @@ class NetworkSimulator:
             frame_path = os.path.join(output_dir, frame_name)
         else:
             frame_path = frame_name
-        plt.savefig(frame_path, dpi=100, bbox_inches='tight')
+        plt.savefig(frame_path, dpi=150, bbox_inches='tight')
         plt.close()
         
         return frame_path
