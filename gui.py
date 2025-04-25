@@ -289,10 +289,9 @@ class P2PGUI(QMainWindow):
             self.update_console("Recording stopped")
 
     def save_config(self):
-        filepath, _ = QFileDialog.getSaveFileName(self, "Save Config", "", "JSON Files (*.json)")
-        if filepath:
-            # Implement config saving logic
-            self.update_console(f"Config saved to {filepath}")
+        saved_path = self.network.save_network_config()
+        print(f"Конфигурация сохранена в: {saved_path}")
+        self.update_console(f"Конфигурация сохранена в: {saved_path}")
 
     def closeEvent(self, event):
         self.network_thread.stop()

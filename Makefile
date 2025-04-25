@@ -43,12 +43,12 @@ coverage-html: install ## Запустить тесты с покрытием и
 	$(PYTEST) -v --cov=src --cov-report=html
 
 # Запуск симуляции с автоматической генерацией сети
-run: install ## Запустить симуляцию (main.py), запустить в GUI (указать gui=1)
-ifneq ($(gui), 1)
+run: install ## Запустить симуляцию (main.py)
 	$(PYTHON) main.py
-else
+
+# Запуск в GUI
+run-gui: install ## Запустить в GUI
 	$(PYTHON) main.py --gui
-endif
 
 # Запуск с загрузкой сети из конфига
 # Использование: make run-load config=<путь_к_файлу.json>
@@ -57,6 +57,13 @@ ifndef config
 	$(error Пожалуйста, укажите config, например: make run-load config=config.json)
 endif
 	$(PYTHON) main.py -l $(config)
+
+# Запуск в GUI с загрузкой сети из конфига
+run-gui-load: install ## Запустить в GUI с загрузкой сети из config (указать config)
+ifndef config
+	$(error Пожалуйста, укажите config, например: make run-gui-load config=config.json)
+endif
+	$(PYTHON) main.py --gui -l $(config)
 
 # Запуск с подменой терминала мнимым пользователем
 run-user: install ## Запустить с подменой терминала мнимым пользователем
