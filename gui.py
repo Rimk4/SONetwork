@@ -1,227 +1,309 @@
 # gui.py
-import sys
+import time
+import dearpygui.dearpygui as dpg
 import os
-from typing import Optional
-from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QTextEdit, QLineEdit, QPushButton, QTabWidget, QLabel,
-                             QFileDialog, QListWidget, QSpinBox, QDoubleSpinBox)
-from PySide2.QtCore import Qt, QThread, Signal, Slot
-from PySide2.QtGui import QTextCursor, QPixmap
-from PySide2.QtWidgets import QSizePolicy
 from src.p2p_node import P2PNode
 from src.models import Position
-
-class NetworkThread(QThread):
-    update_signal = Signal(str)
-
-    def __init__(self, network, parent=None):
-        super().__init__(parent)
-        self.network = network
-        self.running = True
-
-    def run(self):
-        while self.running:
-            self.network.process_events()
-            self.msleep(100)
-
-    def stop(self):
-        self.running = False
-        self.wait()
-
-class P2PGUI(QMainWindow):
+import numpy as np
+class NetworkThread:
     def __init__(self, network):
-        super().__init__()
+        self.network = network
+
+    def process_events(self):
+        self.network.process_events()
+
+class P2PGUI:
+    def __init__(self, network):
         self.network = network
         self.current_node_id = next(iter(network.nodes)) if network.nodes else None
+        self.console_text = ""
+        self.recording = False
+        self.language = "en"  # По умолчанию английский
+        self.last_update_time = 0  # Время последнего обновления изображения
+        self.texts = {
+            "en": {
+                "window_title": "P2P Network Simulator",
+                "nodes": "Nodes:",
+                "new_node_params": "New Node Parameters:",
+                "node_id": "Node ID",
+                "velocity": "Velocity [m/s]",
+                "direction": "Direction [°]",
+                "bitrate": "Bitrate",
+                "add_node": "Add Node",
+                "kill_node": "Kill Node",
+                "position_control": "Position Control:",
+                "x_pos": "X",
+                "y_pos": "Y",
+                "move_node": "Move Node",
+                "console": "Console",
+                "topology": "Topology",
+                "network_topology": "Network Topology",
+                "command_input": "Command Input",
+                "screenshot": "Screenshot",
+                "start_recording": "Start Recording",
+                "stop_recording": "Stop Recording",
+                "save_config": "Save Config",
+                "node_selected": "Selected node {}",
+                "node_selection_error": "Error determining node ID",
+                "no_node_selected": "No node selected",
+                "no_active_node": "No active node selected",
+                "adding_node": "Adding new node...",
+                "node_added": "Added node {} with position ({}, {}), velocity {}, direction {}, bitrate {}",
+                "node_add_error": "Error adding node: {}",
+                "killing_node": "Killing node {}...",
+                "moving_node": "Moving node...",
+                "node_moved": "Moved node {} to ({}, {})",
+                "image_displayed": "Displayed image: {}",
+                "image_load_error": "Failed to load or display image: {}",
+                "image_error": "Image loading error",
+                "file_not_found": "File not found: {}",
+                "image_not_found": "Image not found",
+                "recording_started": "Recording started...",
+                "recording_stopped": "Recording stopped",
+                "config_saved": "Configuration saved to: {}",
+                "language": "Language"
+            },
+            "ru": {
+                "window_title": "P2P Сетевой Симулятор",
+                "nodes": "Узлы:",
+                "new_node_params": "Параметры нового узла:",
+                "node_id": "ID узла",
+                "velocity": "Скорость [м/с]",
+                "direction": "Направление [°]",
+                "bitrate": "Битрейт",
+                "add_node": "Добавить узел",
+                "kill_node": "Удалить узел",
+                "position_control": "Управление позицией:",
+                "x_pos": "X",
+                "y_pos": "Y",
+                "move_node": "Переместить узел",
+                "console": "Консоль",
+                "topology": "Визуализация",
+                "network_topology": "Визуализация сети",
+                "command_input": "Ввод команды",
+                "screenshot": "Скриншот",
+                "start_recording": "Начать запись",
+                "stop_recording": "Остановить запись",
+                "save_config": "Сохранить конфигурацию",
+                "node_selected": "Выбран узел {}",
+                "node_selection_error": "Ошибка при определении ID узла",
+                "no_node_selected": "Узел не выбран",
+                "no_active_node": "Не выбран активный узел",
+                "adding_node": "Добавление нового узла...",
+                "node_added": "Добавлен узел {} с позицией ({}, {}), скоростью {}, направлением {}, битрейтом {}",
+                "node_add_error": "Ошибка добавления узла: {}",
+                "killing_node": "Удаление узла {}...",
+                "moving_node": "Перемещение узла...",
+                "node_moved": "Узел {} перемещен в ({}, {})",
+                "image_displayed": "Отображено изображение: {}",
+                "image_load_error": "Не удалось загрузить или отобразить изображение: {}",
+                "image_error": "Ошибка загрузки изображения",
+                "file_not_found": "Файл не найден: {}",
+                "image_not_found": "Изображение не найдено",
+                "recording_started": "Запись начата...",
+                "recording_stopped": "Запись остановлена",
+                "config_saved": "Конфигурация сохранена в: {}",
+                "language": "Язык"
+            }
+        }
+        
+        self.network_thread = NetworkThread(self.network)
         self.init_ui()
-        self.start_network_thread()
+
+    def t(self, key, *args):
+        """Получить переведенный текст с форматированием"""
+        return self.texts[self.language][key].format(*args)
 
     def init_ui(self):
-        self.setWindowTitle("P2P Network Simulator")
-        self.setGeometry(100, 100, 900, 600)
+        dpg.create_context()
 
-        # Central Widget and Layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        with dpg.font_registry():
+            with dpg.font("resources/notomono-regular.ttf", 16, default_font=True, tag="Default font") as f:
+                dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
+        dpg.bind_font("Default font")
 
-        # Left Panel - Node Controls
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
+        with dpg.theme() as global_theme:
+            with dpg.theme_component(dpg.mvAll):
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (60, 60, 60, 255))
+                dpg.add_theme_color(dpg.mvThemeCol_Button, (60, 60, 60, 255))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (80, 80, 80, 255))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (100, 100, 100, 255))
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+                dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 5)
+                dpg.add_theme_style(dpg.mvStyleVar_PopupRounding, 5)
+                dpg.add_theme_style(dpg.mvStyleVar_ScrollbarRounding, 5)
+                dpg.add_theme_style(dpg.mvStyleVar_TabRounding, 5)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 5)
+        dpg.bind_theme(global_theme)
 
-        # Node Management
-        node_group = QWidget()
-        node_layout = QVBoxLayout(node_group)
+        # Инициализация пустой текстуры
+        self.texture_data = np.ones((500, 400, 4), dtype=np.float32)
+        with dpg.texture_registry():
+                dpg.add_raw_texture(
+                    500,
+                    400,
+                    self.texture_data,
+                    format=dpg.mvFormat_Float_rgba,
+                    tag="topology_texture",
+                )
+
+        with dpg.window(label=self.t("window_title"), width=900, height=600) as main_window:
+            with dpg.child_window(width=350, height=-1, pos=[0, 20]):
+                dpg.add_text(self.t("nodes"))
+                dpg.add_listbox(
+                    items=[f"Node {node_id}" for node_id in self.network.nodes],
+                    width=200,
+                    callback=self.on_node_selected,
+                    tag="node_list",
+                )
+                dpg.add_text(self.t("new_node_params"))
+                dpg.add_input_int(label=self.t("node_id"), width=200, default_value=1, tag="node_id")
+                dpg.add_input_float(
+                    label=self.t("velocity"), width=200, default_value=0.0, tag="velocity", format="%.2f"
+                )
+                dpg.add_input_float(
+                    label=self.t("direction"), width=200, default_value=0.0, tag="direction", format="%.2f"
+                )
+                dpg.add_input_int(label=self.t("bitrate"), width=200, default_value=5000, tag="bitrate")
+                dpg.add_button(label=self.t("add_node"), callback=self.add_node, tag="add_node")
+                dpg.add_button(label=self.t("kill_node"), callback=self.kill_node, tag="kill_node")
+
+                dpg.add_text(self.t("position_control"))
+                dpg.add_input_float(label=self.t("x_pos"), width=200, default_value=0.0, tag="x_pos")
+                dpg.add_input_float(label=self.t("y_pos"), width=200, default_value=0.0, tag="y_pos")
+                dpg.add_button(label=self.t("move_node"), callback=self.move_node, tag="move_node")
+                
+                # Добавляем переключатель языка
+                dpg.add_text(self.t("language"))
+                dpg.add_radio_button(
+                    items=["English", "Русский"],
+                    callback=self.change_language,
+                    tag="language_selector",
+                    default_value="English" if self.language == "en" else "Русский"
+                )
+
+            with dpg.child_window(width=-1, height=-1, pos=[350, 20]):
+                with dpg.tab_bar():
+                    with dpg.tab(label=self.t("console")):
+                        dpg.add_input_text(
+                            multiline=True,
+                            readonly=True,
+                            width=-1,
+                            height=400,
+                            tag="console",
+                        )
+
+                    with dpg.tab(label=self.t("topology")):
+                        dpg.add_image(
+                            "topology_texture", 
+                            width=500,
+                            height=400,
+                            tag="network_image"
+                        )
+                        dpg.add_text(self.t("network_topology"), tag="topology_text")
+
+                dpg.add_input_text(
+                    label=self.t("command_input"), on_enter=True, callback=self.execute_command, tag="command_input"
+                )
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label=self.t("screenshot"), callback=self.screenshot, tag="screenshot")
+                    dpg.add_button(
+                        label=self.t("start_recording"),
+                        callback=self.toggle_recording,
+                        tag="record_button"
+                    )
+                    dpg.add_button(label=self.t("save_config"), callback=self.save_config, tag="save_config")
+
+        dpg.create_viewport(title=self.t("window_title"), width=900, height=600)
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+
+        while dpg.is_dearpygui_running():
+            current_time = time.time()
+            # Обновляем изображение каждую секунду
+            if current_time - self.last_update_time >= 1.0:
+                self.screenshot()
+                self.last_update_time = current_time
+                
+            self.network_thread.process_events()
+            dpg.render_dearpygui_frame()
+
+        dpg.destroy_context()
+
+
+    def change_language(self, sender, data):
+        self.language = "en" if data == "English" else "ru"
+        self.update_ui_language()
+
+    def update_ui_language(self):
+        """Обновление всех текстовых элементов интерфейса"""
+        dpg.set_viewport_title(self.t("window_title"))
         
-        self.node_list = QListWidget()
-        self.update_node_list()
-        node_layout.addWidget(QLabel("Nodes:"))
-        node_layout.addWidget(self.node_list)
-        self.node_list.currentItemChanged.connect(self.on_node_selected)
-
-        node_layout.addWidget(QLabel("New Node Parameters:"))
-
-        # Node ID
-        self.node_id_spin = QSpinBox()
-        self.node_id_spin.setRange(1, 1000000)
-        self.node_id_spin.setValue(1)
-        node_layout.addWidget(QLabel("Node ID:"))
-        node_layout.addWidget(self.node_id_spin)
-
-        # Velocity
-        self.velocity_spin = QDoubleSpinBox()
-        self.velocity_spin.setRange(0, 10000)
-        self.velocity_spin.setDecimals(2)
-        self.velocity_spin.setValue(0.0)
-        node_layout.addWidget(QLabel("Velocity:"))
-        node_layout.addWidget(self.velocity_spin)
-
-        # Direction (градусы)
-        self.direction_spin = QDoubleSpinBox()
-        self.direction_spin.setRange(0, 360)
-        self.direction_spin.setDecimals(2)
-        self.direction_spin.setValue(0.0)
-        node_layout.addWidget(QLabel("Direction (degrees):"))
-        node_layout.addWidget(self.direction_spin)
-
-        # Bitrate
-        self.bitrate_spin = QSpinBox()
-        self.bitrate_spin.setRange(1, 1000000000)
-        self.bitrate_spin.setValue(5000)
-        node_layout.addWidget(QLabel("Bitrate:"))
-        node_layout.addWidget(self.bitrate_spin)
-
-        self.add_node_btn = QPushButton("Add Node")
-        self.add_node_btn.clicked.connect(self.add_node)
-        node_layout.addWidget(self.add_node_btn)
-
-        self.kill_node_btn = QPushButton("Kill Node")
-        self.kill_node_btn.clicked.connect(self.kill_node)
-        node_layout.addWidget(self.kill_node_btn)
-
-        left_layout.addWidget(node_group)
-
-        # Node Position Control
-        pos_group = QWidget()
-        pos_layout = QVBoxLayout(pos_group)
+        # Обновляем тексты в левой панели
+        dpg.set_item_label("node_list", self.t("nodes"))
+        dpg.configure_item("node_id", label=self.t("node_id"))
+        dpg.configure_item("velocity", label=self.t("velocity"))
+        dpg.configure_item("direction", label=self.t("direction"))
+        dpg.configure_item("bitrate", label=self.t("bitrate"))
+        dpg.configure_item("add_node", label=self.t("add_node"))
+        dpg.configure_item("kill_node", label=self.t("kill_node"))
+        dpg.configure_item("x_pos", label=self.t("x_pos"))
+        dpg.configure_item("y_pos", label=self.t("y_pos"))
+        dpg.configure_item("move_node", label=self.t("move_node"))
         
-        pos_layout.addWidget(QLabel("Position Control:"))
+        # Обновляем тексты в правой панели
+        dpg.set_item_label("console", self.t("console"))
+        dpg.set_item_label("network_image", self.t("topology"))
+        dpg.set_item_label("topology_text", self.t("network_topology"))
+        dpg.configure_item("command_input", label=self.t("command_input"))
+        dpg.configure_item("screenshot", label=self.t("screenshot"))
+        dpg.configure_item("record_button", label=self.t("stop_recording" if self.recording else "start_recording"))
+        dpg.configure_item("save_config", label=self.t("save_config"))
         
-        self.x_spin = QDoubleSpinBox()
-        self.x_spin.setRange(-10000, 10000)
-        self.y_spin = QDoubleSpinBox()
-        self.y_spin.setRange(-10000, 10000)
-        
-        pos_layout.addWidget(QLabel("X:"))
-        pos_layout.addWidget(self.x_spin)
-        pos_layout.addWidget(QLabel("Y:"))
-        pos_layout.addWidget(self.y_spin)
+        # Обновляем переключатель языка
+        dpg.configure_item("language_selector", items=["English", "Русский"], default_value="English" if self.language == "en" else "Русский")
 
-        self.move_btn = QPushButton("Move Node")
-        self.move_btn.clicked.connect(self.move_node)
-        pos_layout.addWidget(self.move_btn)
-
-        left_layout.addWidget(pos_group)
-
-        # Right Panel - Main Interface
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-
-        # Tab Widget
-        self.tabs = QTabWidget()
-        
-        # Console Tab
-        self.console = QTextEdit()
-        self.console.setReadOnly(True)
-        self.tabs.addTab(self.console, "Console")
-
-        # Visualization Tab
-        self.visualization = QLabel("Network Visualization")
-        self.visualization.setAlignment(Qt.AlignCenter)
-        self.tabs.addTab(self.visualization, "Visualization")
-        self.visualization.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.visualization.setScaledContents(False)
-
-        right_layout.addWidget(self.tabs)
-
-        # Command Input
-        self.command_input = QLineEdit()
-        self.command_input.returnPressed.connect(self.execute_command)
-        right_layout.addWidget(self.command_input)
-
-        # Buttons
-        btn_group = QWidget()
-        btn_layout = QHBoxLayout(btn_group)
-        
-        self.visualize_btn = QPushButton("Visualize")
-        self.visualize_btn.clicked.connect(self.visualize)
-        btn_layout.addWidget(self.visualize_btn)
-
-        self.record_btn = QPushButton("Start Recording")
-        self.record_btn.clicked.connect(self.toggle_recording)
-        btn_layout.addWidget(self.record_btn)
-
-        self.save_btn = QPushButton("Save Config")
-        self.save_btn.clicked.connect(self.save_config)
-        btn_layout.addWidget(self.save_btn)
-
-        right_layout.addWidget(btn_group)
-
-        # Combine Layouts
-        main_layout.addWidget(left_panel, 1)
-        main_layout.addWidget(right_panel, 3)
-
-    def start_network_thread(self):
-        self.network_thread = NetworkThread(self.network)
-        self.network_thread.update_signal.connect(self.update_console)
-        self.network_thread.start()
-
-    @Slot(str)
     def update_console(self, message):
-        self.console.append(message)
-        self.console.moveCursor(QTextCursor.End)
+        self.console_text += message + "\n"
+        dpg.set_value("console", self.console_text)
 
     def update_node_list(self):
-        self.node_list.clear()
-        for node_id in self.network.nodes:
-            self.node_list.addItem(f"Node {node_id}")
+        nodes = [f"Node {node_id}" for node_id in self.network.nodes]
+        dpg.configure_item("node_list", items=nodes)
 
-    def on_node_selected(self, current, previous):
-        if current is not None:
-            # Предполагается, что текст элемента вида "Node <id>"
-            text = current.text()
+    def on_node_selected(self, sender, data):
+        selected_node = dpg.get_value("node_list")
+        if selected_node:
             try:
-                node_id = int(text.split()[-1])
+                node_id = int(selected_node.split()[-1])
                 self.current_node_id = node_id
-                self.update_console(f"Выбран узел {node_id}")
+                self.update_console(self.t("node_selected", node_id))
             except ValueError:
                 self.current_node_id = None
-                self.update_console("Ошибка при определении ID узла")
+                self.update_console(self.t("node_selection_error"))
         else:
             self.current_node_id = None
-            self.update_console("Узел не выбран")
+            self.update_console(self.t("no_node_selected"))
 
     def execute_command(self):
-        cmd = self.command_input.text()
-        self.command_input.clear()
-        
+        cmd = dpg.get_value("command_input")
+        dpg.set_value("command_input", "")
         if not cmd:
             return
-            
+
         if self.current_node_id:
             self.network.nodes[self.current_node_id].send_command(cmd)
         else:
-            self.update_console("No active node selected")
+            self.update_console(self.t("no_active_node"))
 
     def add_node(self):
-        self.update_console("Adding new node...")
-        node_id = self.node_id_spin.value()
-        velocity = self.velocity_spin.value()
-        direction = self.direction_spin.value()
-        bitrate = self.bitrate_spin.value()
-        x = self.x_spin.value()
-        y = self.y_spin.value()
-
+        self.update_console(self.t("adding_node"))
+        node_id = dpg.get_value("node_id")
+        velocity = dpg.get_value("velocity")
+        direction = dpg.get_value("direction")
+        bitrate = dpg.get_value("bitrate")
+        x = dpg.get_value("x_pos")
+        y = dpg.get_value("y_pos")
         position = Position(x, y)
 
         new_node = P2PNode(
@@ -230,75 +312,70 @@ class P2PGUI(QMainWindow):
             network=self.network,
             bitrate=bitrate,
             velocity=velocity,
-            direction=direction
+            direction=direction,
         )
 
         try:
             self.network.add_node(new_node)
-            self.update_console(f"Добавлен узел {node_id} с позицией ({x}, {y}), скоростью {velocity}, направлением {direction}, bitrate {bitrate}")
+            new_node.start()
+            self.update_console(self.t("node_added", node_id, x, y, velocity, direction, bitrate))
         except Exception as e:
-            self.update_console(f"Ошибка добавления узла: {str(e)}")
+            self.update_console(self.t("node_add_error", str(e)))
 
         self.update_node_list()
 
     def kill_node(self):
-        selected = self.node_list.currentItem()
-        if selected:
-            node_id = int(selected.text().split()[-1])
-            self.update_console(f"Killing node {node_id}...")
+        selected_node = dpg.get_value("node_list")
+        if selected_node:
+            node_id = int(selected_node.split()[-1])
+            self.update_console(self.t("killing_node", node_id))
             self.network.kill_node(node_id)
             self.update_node_list()
 
     def move_node(self):
-        x = self.x_spin.value()
-        y = self.y_spin.value()
+        x = dpg.get_value("x_pos")
+        y = dpg.get_value("y_pos")
         if self.current_node_id:
-            self.update_console(f"Moving node...")
+            self.update_console(self.t("moving_node"))
             self.network.move_node(self.current_node_id, Position(x, y))
-            self.update_console(f"Moved node {self.current_node_id} to ({x}, {y})")
+            self.update_console(self.t("node_moved", self.current_node_id, x, y))
 
-    def visualize(self):
-        # Путь к изображению (замените на актуальный путь)
-        image_path = self.network.visualize(self.current_node_id)
-
-        if os.path.exists(image_path):
-            pixmap = QPixmap(image_path)
-            if pixmap.isNull():
-                self.update_console(f"Не удалось загрузить изображение: {image_path}")
-                self.visualization.setText("Ошибка загрузки изображения")
-            else:
-                # Масштабируем изображение под размер QLabel, сохраняя пропорции
-                scaled_pixmap = pixmap.scaled(
-                    self.visualization.size(),
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation
-                )
-                self.visualization.setPixmap(scaled_pixmap)
-                self.update_console(f"Отображено изображение: {image_path}")
+    def screenshot(self):
+        image_path = self.network.screenshot(self.current_node_id)
+        if image_path and os.path.exists(image_path):
+            try:
+                from PIL import Image
+                
+                # Загружаем и подготавливаем изображение
+                img = Image.open(image_path).resize((500, 400))  # Обратите внимание на размеры (width, height)
+                # img = img.transpose(Image.FLIP_TOP_BOTTOM)  # Переворачиваем по вертикали
+                img = img.convert("RGBA")
+                
+                # Конвертируем в numpy массив и нормализуем
+                img_array = np.array(img, dtype=np.float32) / 255.0
+                
+                # Обновляем текстуру
+                dpg.set_value("topology_texture", img_array)
+                
+                # Обновляем отображение (размеры должны соответствовать размерам текстуры)
+                dpg.configure_item("network_image", width=500, height=400)
+                self.update_console(self.t("image_displayed", image_path))
+            except Exception as e:
+                self.update_console(self.t("image_load_error", str(e)))
         else:
-            self.update_console(f"Файл не найден: {image_path}")
-            self.visualization.setText("Изображение не найдено")
+            self.update_console(self.t("file_not_found", image_path if image_path else "None"))
 
     def toggle_recording(self):
-        # Implement recording logic
-        if self.record_btn.text() == "Start Recording":
-            self.record_btn.setText("Stop Recording")
-            self.update_console("Recording started...")
+        if not self.recording:
+            self.update_console(self.t("recording_started"))
         else:
-            self.record_btn.setText("Start Recording")
-            self.update_console("Recording stopped")
+            self.update_console(self.t("recording_stopped"))
+        self.recording = not self.recording
+        dpg.set_item_label("record_button", self.t("stop_recording" if self.recording else "start_recording"))
 
     def save_config(self):
         saved_path = self.network.save_network_config()
-        print(f"Конфигурация сохранена в: {saved_path}")
-        self.update_console(f"Конфигурация сохранена в: {saved_path}")
-
-    def closeEvent(self, event):
-        self.network_thread.stop()
-        super().closeEvent(event)
+        self.update_console(self.t("config_saved", saved_path))
 
 def start_gui(network):
-    app = QApplication(sys.argv)
     gui = P2PGUI(network)
-    gui.show()
-    sys.exit(app.exec_())

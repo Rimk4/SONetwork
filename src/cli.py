@@ -24,7 +24,7 @@ class CLICommandHandler:
         self.network_commands = {
             "switch": self._switch_node,
             "kill": self._kill_node,
-            "visualize": self._visualize,
+            "screenshot": self._screenshot,
             "record": self._record,
             "stop": self._stop_recording,
             "savecfg": self._save_config,
@@ -150,9 +150,9 @@ class CLICommandHandler:
         """Удаление текущего узла"""
         return self.network.kill_node(int(args[0]))
 
-    def _visualize(self, *args):
+    def _screenshot(self, *args):
         """Визуализация сети"""
-        self.network.visualize(self.current_node_id)
+        self.network.screenshot(self.current_node_id)
 
     def _record(self, *args):
         """Запись анимации сети"""
@@ -237,7 +237,7 @@ class CLICommandHandler:
         print("  addnode [x] [y] - добавить новый узел")
         print("  moveto x y [id] - переместить узел в координаты")
         print("  setvelocity speed dir [id] - задать скорость узла")
-        print("  visualize - визуализировать сеть")
+        print("  screenshot - визуализировать сеть")
         print("  record [fps] [duration] - записать анимацию")
         print("  stop - остановить запись")
         print("  savecfg [filename] - сохранить конфигурацию")

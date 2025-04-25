@@ -14,7 +14,7 @@ class CommandGenerator:
             ("findroute 2", 1.5),
             ("log INFO", 0.5),
             ("switch", 1.0),
-            ("visualize", 2.0),
+            ("screenshot", 2.0),
             ("addnode 50 50", 1.5),
             ("moveto 30 30", 1.0),
             ("setvelocity 1.5 45", 1.0),
@@ -22,7 +22,7 @@ class CommandGenerator:
             ("\n", 0.1),
             ("stop", 1.0),
             ("savecfg", 1.5),
-            ("kill", 2.0),
+            ("kill 2", 2.0),
             ("exit", 0)
         ]
 
