@@ -137,7 +137,8 @@ class P2PNode(threading.Thread):
         
         # Рассылка beacon всем узлам
         for node_id in self.network.nodes:
-            self.network.transmit_frame(beacon, self.node_id, node_id)
+            if node_id != self.node_id:
+                self.network.transmit_frame(beacon, self.node_id, node_id)
         
         self.logger.debug(f"Отправлен BEACON всем узлам")
 
