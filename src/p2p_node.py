@@ -9,7 +9,7 @@ from datetime import timedelta
 from src.SimulatorDateTime import SimulatorDateTime as datetime
 from typing import Dict, Tuple, Optional, List
 from src.models import Position, Frame, NodeState, RoutingEntry
-from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR
+from src.constants import T_SCAN, T_TIMEOUT, LOG_DIR
 
 class P2PNode(threading.Thread):
     """Класс, реализующий узел P2P-сети с улучшенной маршрутизацией"""
@@ -492,7 +492,7 @@ class P2PNode(threading.Thread):
         # Если фрейм адресован нам - обрабатываем
         if frame.destination_id == self.node_id:
             message = frame.payload.decode()
-            print(f"\n[Сообщение от {frame.sender_id}]: {message}")
+            print(f"\n{self.node_id}: [Сообщение от {frame.sender_id}]: {message}")
             self.logger.info(f"Получено сообщение от {frame.sender_id}: {message}")
             return
         

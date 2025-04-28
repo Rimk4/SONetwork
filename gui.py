@@ -111,7 +111,11 @@ class P2PGUI:
                 "language": "Language",
                 "node_logs": "Node Logs",
                 "no_log_file": "No log file for node {}",
-                "log_update_error": "Error updating logs: {}"
+                "log_update_error": "Error updating logs: {}",
+                "decay_rate": "Decay Rate",
+                "set_decay_rate": "Set Decay Rate",
+                "destruct_on": "Errors On",
+                "destruct_off": "Errors Off",
             },
             "ru": {
                 "window_title": "P2P Сетевой Симулятор",
@@ -156,7 +160,11 @@ class P2PGUI:
                 "language": "Язык",
                 "node_logs": "Логи узла",
                 "no_log_file": "Нет файла лога для узла {}",
-                "log_update_error": "Ошибка обновления логов: {}"
+                "log_update_error": "Ошибка обновления логов: {}",
+                "decay_rate": "Коэффициент затухания",
+                "set_decay_rate": "Установить коэффициент",
+                "destruct_on": "Включить помехи",
+                "destruct_off": "Отключить помехи",
             }
         }
         
@@ -226,6 +234,31 @@ class P2PGUI:
                 dpg.add_input_float(label=self.t("y_pos"), width=200, default_value=0.0, tag="y_pos")
                 dpg.add_button(label=self.t("move_node"), callback=self.move_node, tag="move_node")
                 
+                # Добавляем поле для decay_rate после других параметров
+                dpg.add_input_float(
+                    label="Decay Rate",
+                    width=200,
+                    default_value=0.3,
+                    format="%.2f",
+                    min_value=0.0,
+                    max_value=1.0,
+                    tag="decay_rate"
+                )
+                
+                # Добавляем кнопку для применения значения
+                dpg.add_button(
+                    label=self.t("set_decay_rate"),
+                    callback=self.set_decay_rate,
+                    tag="set_decay_rate"
+                )
+
+                dpg.add_radio_button(
+                    items=[self.t("destruct_on"), self.t("destruct_off")],
+                    callback=self.choose_errors_on_off,
+                    tag="destruction_selector",
+                    default_value=self.t("destruct_off")
+                )
+
                 # Добавляем переключатель языка
                 dpg.add_text(self.t("language"))
                 dpg.add_radio_button(
@@ -279,6 +312,9 @@ class P2PGUI:
     def change_language(self, sender, data):
         self.language = "en" if data == "English" else "ru"
         self.update_ui_language()
+    
+    def choose_errors_on_off(self, sender, data):
+        self.network.set_trans_probability_flag(True if data == self.t("destruct_on") else False)
 
     def update_ui_language(self):
         """Обновление всех текстовых элементов интерфейса"""
@@ -295,6 +331,8 @@ class P2PGUI:
         dpg.configure_item("x_pos", label=self.t("x_pos"))
         dpg.configure_item("y_pos", label=self.t("y_pos"))
         dpg.configure_item("move_node", label=self.t("move_node"))
+        dpg.configure_item("decay_rate", label=self.t("decay_rate"))
+        dpg.configure_item("set_decay_rate", label=self.t("set_decay_rate"))
         
         # Обновляем тексты в правой панели
         dpg.set_item_label("console", self.t("console"))
@@ -307,6 +345,14 @@ class P2PGUI:
         
         # Обновляем переключатель языка
         dpg.configure_item("language_selector", items=["English", "Русский"], default_value="English" if self.language == "en" else "Русский")
+
+    def set_decay_rate(self):
+        decay_rate = dpg.get_value("decay_rate")
+        if 0 <= decay_rate <= 1:
+            self.network.set_decay_rate(decay_rate)
+            self.update_console(f"Decay rate set to {decay_rate}")
+        else:
+            self.update_console("Decay rate must be between 0 and 1")
 
     def update_console(self, message):
         self.console_text += message + "\n"
