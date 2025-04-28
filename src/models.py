@@ -182,7 +182,7 @@ class Frame:
         sender_id: int,
         target_id: int,
         hop_count: int = 0,
-        max_hops: int = 10
+        max_hops: int = 7
     ) -> 'Frame':
         """Создание Route Request (RREQ) фрейма"""
         return cls(

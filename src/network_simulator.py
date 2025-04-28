@@ -21,6 +21,8 @@ class NetworkSimulator:
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
         self.start_time = self.current_time
+        self.decay_rate = 0.3  # коэффициент затухания вероятности с расстоянием
+        self.using_trans_succ_prob = False
         self._setup_logger()
         self.transmission_stats = {
             "success": 0,
@@ -62,7 +64,7 @@ class NetworkSimulator:
             position = node.state.position
             color = 'red' if node_id == observer_id else 'blue'
             plt.plot(position.x, position.y, 'o', color=color, markersize=10)
-            plt.text(position.x, position.y, f'{node_id}', fontsize=12, ha='center', va='center')
+            plt.text(position.x, position.y, f'{node_id}', color='grey', fontsize=20)
             
             # Зона покрытия для наблюдателя
             if node_id == observer_id:
@@ -123,11 +125,12 @@ class NetworkSimulator:
             return False
 
         # Модель потерь в канале
-        success_prob = self._calculate_transmission_probability(distance, sender.bitrate, frame)
-        if random.random() > success_prob:
-            self.transmission_stats["failed_transmission"] += 1
-            sender.logger.debug(f"Фрейм потерян из-за ошибки передачи (вероятность успеха {success_prob:.2f})")
-            return False
+        if self.using_trans_succ_prob:
+            success_prob = self._calculate_transmission_probability(distance, sender.bitrate, frame)
+            if random.random() > success_prob:
+                self.transmission_stats["failed_transmission"] += 1
+                sender.logger.debug(f"Фрейм потерян из-за ошибки передачи (вероятность успеха {success_prob:.2f})")
+                return False
 
         # Расчет времени доставки
         delay = self._calculate_transmission_delay(distance, sender.bitrate, frame)
@@ -143,8 +146,7 @@ class NetworkSimulator:
     def _calculate_transmission_probability(self, distance: float, bitrate: int, frame: Frame) -> float:
         """Расчет вероятности успешной передачи"""
         # Базовая вероятность с учетом расстояния
-        alpha = 0.3
-        distance_factor = math.exp(-alpha * distance / R)
+        distance_factor = math.exp(-self.decay_rate * distance / R)
         
         # Влияние размера фрейма (большие фреймы более подвержены ошибкам)
         size_factor = 1.0 - (len(frame.payload) / 1024) * 0.1  # Коэффициент для фреймов до 1KB
@@ -255,6 +257,13 @@ class NetworkSimulator:
         node.state.position = position
         self.logger.info(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
         print(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
+
+    def set_decay_rate(self, decay_rate: float) -> None:
+        self.decay_rate = decay_rate
+
+    def set_trans_probability_flag(self, use: bool) -> None:
+        print(use)
+        self.using_trans_succ_prob = use
 
     def get_network_stats(self) -> Dict[str, Any]:
         """Возвращает статистику работы сети"""
