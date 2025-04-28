@@ -1,4 +1,6 @@
 # gui.py
+from queue import Empty, Queue
+import threading
 import time
 import dearpygui.dearpygui as dpg
 import os
@@ -12,6 +14,48 @@ class NetworkThread:
     def process_events(self):
         self.network.process_events()
 
+class LogWatcher:
+    def __init__(self, gui):
+        self.gui = gui
+        self.log_queue = Queue()
+        self.stop_event = threading.Event()
+        self.watcher_thread = threading.Thread(target=self.watch_logs, daemon=True)
+        self.watcher_thread.start()
+
+    def watch_logs(self):
+        last_position = {}
+        while not self.stop_event.is_set():
+            if self.gui.current_node_id:
+                node_id = self.gui.current_node_id
+                log_file = f"out/logs/node_{node_id}.log"
+                if os.path.exists(log_file):
+                    try:
+                        with open(log_file, 'r') as f:
+                            # Определяем текущий размер файла
+                            f.seek(0, 2)
+                            file_size = f.tell()
+                            
+                            # Если файл уменьшился (был перезаписан), сбрасываем позицию
+                            if node_id in last_position and last_position[node_id] > file_size:
+                                last_position[node_id] = 0
+                            
+                            # Переходим на последнюю известную позицию
+                            f.seek(last_position.get(node_id, 0))
+                            
+                            # Читаем новые строки
+                            new_lines = f.readlines()
+                            if new_lines:
+                                last_position[node_id] = f.tell()
+                                # Отправляем последние 10 строк в очередь
+                                self.log_queue.put((node_id, new_lines[-10:]))
+                    except Exception as e:
+                        print(f"Error reading log file: {e}")
+            time.sleep(0.5)
+
+    def stop(self):
+        self.stop_event.set()
+        self.watcher_thread.join()
+
 class P2PGUI:
     def __init__(self, network):
         self.network = network
@@ -20,6 +64,9 @@ class P2PGUI:
         self.recording = False
         self.language = "en"  # По умолчанию английский
         self.last_update_time = 0  # Время последнего обновления изображения
+        self.last_log_update_time = 0  # Время последнего обновления логов
+        self.log_watcher = LogWatcher(self)
+        self.current_log_content = ""
         self.texts = {
             "en": {
                 "window_title": "P2P Network Simulator",
@@ -61,7 +108,10 @@ class P2PGUI:
                 "recording_started": "Recording started...",
                 "recording_stopped": "Recording stopped",
                 "config_saved": "Configuration saved to: {}",
-                "language": "Language"
+                "language": "Language",
+                "node_logs": "Node Logs",
+                "no_log_file": "No log file for node {}",
+                "log_update_error": "Error updating logs: {}"
             },
             "ru": {
                 "window_title": "P2P Сетевой Симулятор",
@@ -103,7 +153,10 @@ class P2PGUI:
                 "recording_started": "Запись начата...",
                 "recording_stopped": "Запись остановлена",
                 "config_saved": "Конфигурация сохранена в: {}",
-                "language": "Язык"
+                "language": "Язык",
+                "node_logs": "Логи узла",
+                "no_log_file": "Нет файла лога для узла {}",
+                "log_update_error": "Ошибка обновления логов: {}"
             }
         }
         
@@ -202,6 +255,15 @@ class P2PGUI:
                         )
                         dpg.add_text(self.t("network_topology"), tag="topology_text")
 
+                    with dpg.tab(label=self.t("node_logs")):
+                        dpg.add_input_text(
+                            multiline=True,
+                            readonly=True,
+                            width=-1,
+                            height=400,
+                            tag="node_logs_display",
+                        )
+
                 dpg.add_input_text(
                     label=self.t("command_input"), on_enter=True, callback=self.execute_command, tag="command_input"
                 )
@@ -213,23 +275,6 @@ class P2PGUI:
                         tag="record_button"
                     )
                     dpg.add_button(label=self.t("save_config"), callback=self.save_config, tag="save_config")
-
-        dpg.create_viewport(title=self.t("window_title"), width=900, height=600)
-        dpg.setup_dearpygui()
-        dpg.show_viewport()
-
-        while dpg.is_dearpygui_running():
-            current_time = time.time()
-            # Обновляем изображение каждую секунду
-            if current_time - self.last_update_time >= 1.0:
-                self.screenshot()
-                self.last_update_time = current_time
-                
-            self.network_thread.process_events()
-            dpg.render_dearpygui_frame()
-
-        dpg.destroy_context()
-
 
     def change_language(self, sender, data):
         self.language = "en" if data == "English" else "ru"
@@ -266,6 +311,41 @@ class P2PGUI:
     def update_console(self, message):
         self.console_text += message + "\n"
         dpg.set_value("console", self.console_text)
+
+    def update_log_display(self):
+        try:
+            # Проверяем очередь на наличие новых логов
+            while True:
+                node_id, lines = self.log_watcher.log_queue.get_nowait()
+                if node_id == self.current_node_id:
+                    self.current_log_content = "".join(lines)
+                    dpg.set_value("node_logs_display", self.current_log_content)
+        except Empty:
+            pass
+
+    def run(self):
+        dpg.create_viewport(title=self.t("window_title"), width=900, height=600)
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+
+        while dpg.is_dearpygui_running():
+            current_time = time.time()
+            
+            # Обновляем изображение каждую секунду
+            if current_time - self.last_update_time >= 1.0:
+                self.screenshot()
+                self.last_update_time = current_time
+            
+            # Обновляем логи каждые 0.5 секунды
+            if current_time - self.last_log_update_time >= 0.5:
+                self.update_log_display()
+                self.last_log_update_time = current_time
+                
+            self.network_thread.process_events()
+            dpg.render_dearpygui_frame()
+
+        self.log_watcher.stop()
+        dpg.destroy_context()
 
     def update_node_list(self):
         nodes = [f"Node {node_id}" for node_id in self.network.nodes]
@@ -379,3 +459,4 @@ class P2PGUI:
 
 def start_gui(network):
     gui = P2PGUI(network)
+    gui.run()
