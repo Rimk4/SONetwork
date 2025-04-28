@@ -9,7 +9,7 @@ from datetime import timedelta
 from src.SimulatorDateTime import SimulatorDateTime as datetime
 from typing import Dict, Tuple, Optional, List
 from src.models import Position, Frame, NodeState, RoutingEntry
-from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR, R
+from src.constants import T_SCAN, T_TIMEOUT, T_SLEEP_MIN, T_SLEEP_MAX, LOG_DIR
 
 class P2PNode(threading.Thread):
     """Класс, реализующий узел P2P-сети с улучшенной маршрутизацией"""
@@ -248,23 +248,21 @@ class P2PNode(threading.Thread):
 
     def _initiate_route_discovery(self, target_id: int) -> None:
         """Инициирование поиска маршрута (AODV-like)"""
-        if target_id in self.local_map:
-            # Узел в локальной карте, но не в таблице маршрутизации
-            rreq = Frame.create_rreq(
-                sender_id=self.node_id,
-                target_id=target_id,
-                hop_count=0,
-                max_hops=self.max_hops
-            )
-            
-            # Рассылка RREQ всем соседям
-            for neighbor_id in self._get_neighbors():
-                self.network.transmit_frame(rreq, self.node_id, neighbor_id)
-            
-            self.logger.info(f"Инициирован поиск маршрута к {target_id}")
+        rreq = Frame.create_rreq(
+            sender_id=self.node_id,
+            target_id=target_id,
+            hop_count=0,
+            max_hops=self.max_hops
+        )
+        
+        # Рассылка RREQ всем соседям (узлы находящиеся в области прямой радиовидимости)
+        for neighbor_id in self._get_neighbors():
+            self.network.transmit_frame(rreq, self.node_id, neighbor_id)
+        
+        self.logger.info(f"Инициирован поиск маршрута к {target_id}")
 
     def _get_neighbors(self) -> List[int]:
-        """Получение списка соседей в радиусе R"""
+        """Получение списка соседей из локальной карты"""
         neighbors = []
         
         for node_id in self.local_map:
@@ -405,33 +403,30 @@ class P2PNode(threading.Thread):
         target_id = payload_dict['target_id']
         hop_count = payload_dict['hop_count'] + 1
         
-        # Если это наш RREQ (отправили сами) - игнорируем
-        if frame.sender_id == self.node_id:
-            return
-        
         # Если мы целевой узел - отправляем RREP
         if target_id == self.node_id:
             rrep = Frame.create_rrep(
-                sender_id=self.node_id,
+                sender_id=target_id,
                 target_id=frame.sender_id,
                 hop_count=hop_count
             )
             
             # Отправляем по обратному маршруту
-            next_hop = frame.sender_id
-            self.network.transmit_frame(rrep, self.node_id, next_hop)
+            self.network.transmit_frame(rrep, self.node_id, frame.sender_id)
             return
         
         # Если у нас есть маршрут к цели - отправляем RREP
+        """
+            Если есть маршрут к target_id - отправляем в обратную сторону
+        """
         if target_id in self.routing_table:
             rrep = Frame.create_rrep(
-                sender_id=self.node_id,
-                target_id=frame.sender_id,
+                sender_id=target_id,
+                target_id=self.node_id,
                 hop_count=hop_count + self.routing_table[target_id].metric
             )
             
-            next_hop = frame.sender_id
-            self.network.transmit_frame(rrep, self.node_id, next_hop)
+            self.network.transmit_frame(rrep, self.node_id, frame.sender_id)
             return
         
         # Если превышено максимальное число прыжков - отбрасываем
@@ -447,7 +442,7 @@ class P2PNode(threading.Thread):
             max_hops=payload_dict['max_hops']
         )
         
-        # Рассылаем всем соседям, кроме отправителя
+        # Рассылаем всем соседям
         for neighbor_id in self._get_neighbors():
             if neighbor_id != frame.sender_id:
                 self.network.transmit_frame(new_rreq, self.node_id, neighbor_id)
@@ -467,7 +462,7 @@ class P2PNode(threading.Thread):
             # Метрика = количеству прыжков
             self._update_routing_table(
                 frame.sender_id,
-                frame.sender_id,
+                frame.destination_id,
                 hop_count
             )
             return
@@ -488,7 +483,7 @@ class P2PNode(threading.Thread):
             # Обновляем свою таблицу маршрутизации
             self._update_routing_table(
                 frame.sender_id,
-                frame.sender_id,
+                frame.destination_id,
                 hop_count
             )
 
