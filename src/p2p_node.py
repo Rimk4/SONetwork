@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import os
 import logging
@@ -6,6 +7,7 @@ import threading
 import time
 import math
 from datetime import timedelta
+from src.logger_filter import LogModule, ModuleFilter
 from src.SimulatorDateTime import SimulatorDateTime as datetime
 from typing import Dict, Tuple, Optional, List
 from src.models import Position, Frame, NodeState, RoutingEntry
@@ -41,6 +43,8 @@ class P2PNode(threading.Thread):
             "help": self.cmd_help,
             "log": self.cmd_set_loglvl,
             "findroute": self.cmd_find_route,
+            "filter": self.cmd_set_filter,
+            "nofilter": self.cmd_remove_filter,
         }
 
         # Настройка логгера для узла
@@ -67,7 +71,33 @@ class P2PNode(threading.Thread):
         fh = logging.FileHandler(log_file)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         fh.setFormatter(formatter)
+
+        # Добавляем обработчик
         self.logger.addHandler(fh)
+        # Добавляем атрибут для хранения текущего фильтра
+        self._current_filter = None
+
+    def set_module_filter(self, module: Enum) -> None:
+        """Установить фильтр логгирования по модулю"""
+        # Удаляем предыдущий фильтр, если он был
+        if self._current_filter is not None:
+            for handler in self.logger.handlers:
+                handler.removeFilter(self._current_filter)
+        
+        # Создаем и добавляем новый фильтр
+        self._current_filter = ModuleFilter(module)
+        for handler in self.logger.handlers:
+            handler.addFilter(self._current_filter)
+        
+        self.logger.info(f"Установлен фильтр логгирования для модуля {module}")
+
+    def remove_module_filter(self) -> None:
+        """Удалить фильтр логгирования по модулю"""
+        if self._current_filter is not None:
+            for handler in self.logger.handlers:
+                handler.removeFilter(self._current_filter)
+            self._current_filter = None
+            self.logger.info("Фильтр логгирования удален")
 
     def run(self) -> None:
         """Основной цикл работы узла"""
@@ -105,12 +135,12 @@ class P2PNode(threading.Thread):
         ]
         for node_id in expired_nodes:
             del self.local_map[node_id]
-            self.logger.debug(f"Узел {node_id} удален из local_map (таймаут)")
+            self.logger.debug(f"[COM] Узел {node_id} удален из local_map (таймаут)")
             
             # Если узел был в таблице маршрутизации, удаляем и его оттуда
             if node_id in self.routing_table:
                 del self.routing_table[node_id]
-                self.logger.debug(f"Маршрут к узлу {node_id} удален из routing_table")
+                self.logger.debug(f"[ROUT] Маршрут к узлу {node_id} удален из routing_table")
         
         # Очистка устаревших маршрутов из таблицы маршрутизации
         expired_routes = [
@@ -119,7 +149,7 @@ class P2PNode(threading.Thread):
         ]
         for node_id in expired_routes:
             del self.routing_table[node_id]
-            self.logger.debug(f"Маршрут к узлу {node_id} удален (истек TTL)")
+            self.logger.debug(f"[ROUT] Маршрут к узлу {node_id} удален (истек TTL)")
 
     def _update_position(self, current_time: datetime) -> None:
         """Обновление позиции узла"""
@@ -140,7 +170,7 @@ class P2PNode(threading.Thread):
             if node_id != self.node_id:
                 self.network.transmit_frame(beacon, self.node_id, node_id)
         
-        self.logger.debug(f"Отправлен BEACON всем узлам")
+        self.logger.debug(f"[COM] Отправлен BEACON всем узлам")
 
     def _check_delayed_frames(self) -> None:
         """Проверка отложенных фреймов (для которых не было маршрута)"""
@@ -152,7 +182,7 @@ class P2PNode(threading.Thread):
                 next_hop = self.routing_table[target_id].next_hop
                 for frame in frames:
                     if self.network.transmit_frame(frame, self.node_id, next_hop):
-                        self.logger.info(f"Отправлен отложенный фрейм для {target_id}")
+                        self.logger.info(f"[COM] Отправлен отложенный фрейм для {target_id}")
                 
                 completed.append(target_id)
         
@@ -228,7 +258,7 @@ class P2PNode(threading.Thread):
             # Маршрут известен - отправляем
             next_hop = self.routing_table[target_id].next_hop
             if self.network.transmit_frame(frame, self.node_id, next_hop):
-                self.logger.info(f"Фрейм отправлен к {target_id} через {next_hop}")
+                self.logger.info(f"[COM] Фрейм отправлен к {target_id} через {next_hop}")
             else:
                 self.logger.warning(f"Ошибка передачи фрейма к {target_id}")
                 self._initiate_route_discovery(target_id)
@@ -244,7 +274,7 @@ class P2PNode(threading.Thread):
         if target_id not in self.delayed_frames:
             self.delayed_frames[target_id] = []
         self.delayed_frames[target_id].append(frame)
-        self.logger.info(f"Фрейм для {target_id} отложен (ожидание маршрута)")
+        self.logger.info(f"[COM] Фрейм для {target_id} отложен (ожидание маршрута)")
 
     def _initiate_route_discovery(self, target_id: int) -> None:
         """Инициирование поиска маршрута (AODV-like)"""
@@ -259,7 +289,7 @@ class P2PNode(threading.Thread):
         for neighbor_id in self._get_neighbors():
             self.network.transmit_frame(rreq, self.node_id, neighbor_id)
         
-        self.logger.info(f"Инициирован поиск маршрута к {target_id}")
+        self.logger.info(f"[ROUT] Инициирован поиск маршрута к {target_id}")
 
     def _get_neighbors(self) -> List[int]:
         """Получение списка соседей из локальной карты"""
@@ -319,6 +349,22 @@ class P2PNode(threading.Thread):
         except ValueError:
             print("Неверный ID узла!")
     
+    def cmd_set_filter(self, module_name: str) -> None:
+        """Установить фильтр логгирования по модулю"""
+        try:
+            module = LogModule[module_name.upper()]
+            self.set_module_filter(module)
+            print(f"Установлен фильтр для модуля {module_name}")
+        except KeyError:
+            print(f"Модуль {module_name} не найден")
+        except Exception as e:
+            print(f"Ошибка установки фильтра: {e}")
+
+    def cmd_remove_filter(self) -> None:
+        """Удалить фильтр логгирования"""
+        self.remove_module_filter()
+        print("Фильтр логгирования удален")
+
     @classmethod
     def cmd_help(cls) -> None:
         """Показать справку по командам узлов"""
@@ -351,10 +397,10 @@ class P2PNode(threading.Thread):
 
     def receive_frame(self, frame: Frame) -> None:
         """Обработка входящего фрейма"""
-        self.logger.debug(f"Получен фрейм {frame.type} от {frame.sender_id}")
+        self.logger.debug(f"[COM] Получен фрейм {frame.type} от {frame.sender_id}")
         
         # Обновляем информацию об отправителе (если есть данные о позиции)
-        if frame.type in ["BEACON", "ACK", "SYN"]:
+        if frame.type in ["BEACON", "ACK"]:
             try:
                 pos, timestamp = self.deserialize_position(frame.payload)
                 self.local_map[frame.sender_id] = (pos, timestamp)
@@ -431,7 +477,7 @@ class P2PNode(threading.Thread):
         
         # Если превышено максимальное число прыжков - отбрасываем
         if hop_count >= payload_dict['max_hops']:
-            self.logger.debug(f"Отброшен RREQ для {target_id} (max_hops достигнут)")
+            self.logger.debug(f"[COM] Отброшен RREQ для {target_id} (max_hops достигнут)")
             return
         
         # Пересылаем RREQ дальше
@@ -493,7 +539,7 @@ class P2PNode(threading.Thread):
         if frame.destination_id == self.node_id:
             message = frame.payload.decode()
             print(f"\n{self.node_id}: [Сообщение от {frame.sender_id}]: {message}")
-            self.logger.info(f"Получено сообщение от {frame.sender_id}: {message}")
+            self.logger.info(f"[COM] Получено сообщение от {frame.sender_id}: {message}")
             return
         
         # Иначе пытаемся переслать дальше
@@ -519,11 +565,11 @@ class P2PNode(threading.Thread):
                 current_entry.expire_time <= now):
                 
                 self.routing_table[node_id] = RoutingEntry(node_id, next_hop, expire_time, metric)
-                self.logger.info(f"Обновлен маршрут к {node_id} через {next_hop} (метрика: {metric:.1f})")
+                self.logger.info(f"[ROUT] Обновлен маршрут к {node_id} через {next_hop} (метрика: {metric:.1f})")
         else:
             # Добавляем новый маршрут
             self.routing_table[node_id] = RoutingEntry(node_id, next_hop, expire_time, metric)
-            self.logger.info(f"Добавлен маршрут к {node_id} через {next_hop} (метрика: {metric:.1f})")
+            self.logger.info(f"[ROUT] Добавлен маршрут к {node_id} через {next_hop} (метрика: {metric:.1f})")
 
     def serialize_position(self) -> bytes:
         """Сериализация позиции и времени для передачи в фрейме"""
