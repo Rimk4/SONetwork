@@ -62,11 +62,19 @@ class P2PGUI:
         self.current_node_id = next(iter(network.nodes)) if network.nodes else None
         self.console_text = ""
         self.recording = False
-        self.language = "en"  # По умолчанию английский
-        self.last_update_time = 0  # Время последнего обновления изображения
-        self.last_log_update_time = 0  # Время последнего обновления логов
+        self.language = "en"
+        self.last_update_time = 0
+        self.last_log_update_time = 0
         self.log_watcher = LogWatcher(self)
         self.current_log_content = ""
+        self.texture_data = None
+        self.texture_tag = "topology_texture"
+        
+        self.window_width = 1200
+        self.window_height = 800
+        self.left_panel_width = 350
+        self.right_panel_width = self.window_width - self.left_panel_width - 20
+
         self.texts = {
             "en": {
                 "window_title": "P2P Network Simulator",
@@ -161,7 +169,7 @@ class P2PGUI:
                 "node_logs": "Логи узла",
                 "no_log_file": "Нет файла лога для узла {}",
                 "log_update_error": "Ошибка обновления логов: {}",
-                "decay_rate": "Коэффициент затухания",
+                "decay_rate": "Коэф. затухания",
                 "set_decay_rate": "Установить коэффициент",
                 "destruct_on": "Включить помехи",
                 "destruct_off": "Отключить помехи",
@@ -200,24 +208,34 @@ class P2PGUI:
         # Инициализация пустой текстуры
         self.texture_data = np.ones((500, 400, 4), dtype=np.float32)
         with dpg.texture_registry():
-                dpg.add_raw_texture(
-                    500,
-                    400,
-                    self.texture_data,
-                    format=dpg.mvFormat_Float_rgba,
-                    tag="topology_texture",
-                )
+            dpg.add_raw_texture(
+                500, 400, 
+                self.texture_data, 
+                format=dpg.mvFormat_Float_rgba, 
+                tag=self.texture_tag
+            )
 
-        with dpg.window(label=self.t("window_title"), width=900, height=600) as main_window:
+        # Главное окно с автоматическим изменением размеров
+        with dpg.window(
+            label=self.t("window_title"), 
+            tag="main_window",
+            width=self.window_width,
+            height=self.window_height,
+            no_resize=False,
+            no_collapse=True,
+            no_move=True,
+            no_title_bar=False,
+            no_scrollbar=True
+        ):
             with dpg.child_window(width=350, height=-1, pos=[0, 20]):
-                dpg.add_text(self.t("nodes"))
+                dpg.add_text(self.t("nodes"), tag="nodes_text")
                 dpg.add_listbox(
                     items=[f"Node {node_id}" for node_id in self.network.nodes],
                     width=200,
                     callback=self.on_node_selected,
                     tag="node_list",
                 )
-                dpg.add_text(self.t("new_node_params"))
+                dpg.add_text(self.t("new_node_params"), tag="new_node_params_text")
                 dpg.add_input_int(label=self.t("node_id"), width=200, default_value=1, tag="node_id")
                 dpg.add_input_float(
                     label=self.t("velocity"), width=200, default_value=0.0, tag="velocity", format="%.2f"
@@ -229,7 +247,7 @@ class P2PGUI:
                 dpg.add_button(label=self.t("add_node"), callback=self.add_node, tag="add_node")
                 dpg.add_button(label=self.t("kill_node"), callback=self.kill_node, tag="kill_node")
 
-                dpg.add_text(self.t("position_control"))
+                dpg.add_text(self.t("position_control"), tag="position_control_text")
                 dpg.add_input_float(label=self.t("x_pos"), width=200, default_value=0.0, tag="x_pos")
                 dpg.add_input_float(label=self.t("y_pos"), width=200, default_value=0.0, tag="y_pos")
                 dpg.add_button(label=self.t("move_node"), callback=self.move_node, tag="move_node")
@@ -260,7 +278,7 @@ class P2PGUI:
                 )
 
                 # Добавляем переключатель языка
-                dpg.add_text(self.t("language"))
+                dpg.add_text(self.t("language"), tag="language_text")
                 dpg.add_radio_button(
                     items=["English", "Русский"],
                     callback=self.change_language,
@@ -270,7 +288,7 @@ class P2PGUI:
 
             with dpg.child_window(width=-1, height=-1, pos=[350, 20]):
                 with dpg.tab_bar():
-                    with dpg.tab(label=self.t("console")):
+                    with dpg.tab(label=self.t("console"), tag="console_tab"):
                         dpg.add_input_text(
                             multiline=True,
                             readonly=True,
@@ -279,7 +297,7 @@ class P2PGUI:
                             tag="console",
                         )
 
-                    with dpg.tab(label=self.t("topology")):
+                    with dpg.tab(label=self.t("topology"), tag="topology_tab"):
                         dpg.add_image(
                             "topology_texture", 
                             width=500,
@@ -288,7 +306,7 @@ class P2PGUI:
                         )
                         dpg.add_text(self.t("network_topology"), tag="topology_text")
 
-                    with dpg.tab(label=self.t("node_logs")):
+                    with dpg.tab(label=self.t("node_logs"), tag="nodes_tab"):
                         dpg.add_input_text(
                             multiline=True,
                             readonly=True,
@@ -321,7 +339,10 @@ class P2PGUI:
         dpg.set_viewport_title(self.t("window_title"))
         
         # Обновляем тексты в левой панели
-        dpg.set_item_label("node_list", self.t("nodes"))
+        dpg.set_value("nodes_text", self.t("nodes"))
+        dpg.set_value("new_node_params_text", self.t("new_node_params"))
+        dpg.set_value("position_control_text", self.t("position_control"))
+        dpg.set_value("language_text", self.t("language"))
         dpg.configure_item("node_id", label=self.t("node_id"))
         dpg.configure_item("velocity", label=self.t("velocity"))
         dpg.configure_item("direction", label=self.t("direction"))
@@ -335,9 +356,10 @@ class P2PGUI:
         dpg.configure_item("set_decay_rate", label=self.t("set_decay_rate"))
         
         # Обновляем тексты в правой панели
-        dpg.set_item_label("console", self.t("console"))
-        dpg.set_item_label("network_image", self.t("topology"))
-        dpg.set_item_label("topology_text", self.t("network_topology"))
+        dpg.set_item_label("console_tab", self.t("console"))
+        dpg.set_item_label("topology_tab", self.t("topology"))
+        dpg.set_value("topology_text", self.t("network_topology"))
+        dpg.set_item_label("nodes_tab", self.t("node_logs"))
         dpg.configure_item("command_input", label=self.t("command_input"))
         dpg.configure_item("screenshot", label=self.t("screenshot"))
         dpg.configure_item("record_button", label=self.t("stop_recording" if self.recording else "start_recording"))
@@ -370,9 +392,16 @@ class P2PGUI:
             pass
 
     def run(self):
-        dpg.create_viewport(title=self.t("window_title"), width=900, height=600)
+        dpg.create_viewport(
+            title=self.t("window_title"), 
+            width=self.window_width, 
+            height=self.window_height,
+            min_width=800,
+            min_height=600
+        )
         dpg.setup_dearpygui()
         dpg.show_viewport()
+        dpg.set_primary_window("main_window", True)
 
         while dpg.is_dearpygui_running():
             current_time = time.time()
