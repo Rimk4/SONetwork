@@ -183,6 +183,7 @@ class P2PNode(threading.Thread):
                 for frame in frames:
                     if self.network.transmit_frame(frame, self.node_id, next_hop):
                         self.logger.info(f"[COM] Отправлен отложенный фрейм для {target_id}")
+                        self.network.data_frames += [(frame, next_hop, frame.destination_id)]
                 
                 completed.append(target_id)
         
@@ -478,6 +479,8 @@ class P2PNode(threading.Thread):
         # Если превышено максимальное число прыжков - отбрасываем
         if hop_count >= payload_dict['max_hops']:
             self.logger.debug(f"[COM] Отброшен RREQ для {target_id} (max_hops достигнут)")
+            self.logger.debug(f"Отброшен RREQ для {target_id} (max_hops достигнут)")
+            print(f"\033[0;31mRREQ\033[0m {self.node_id} max_hops")
             return
         
         # Пересылаем RREQ дальше
