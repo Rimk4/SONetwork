@@ -18,12 +18,14 @@ class NetworkSimulator:
 
     def __init__(self) -> None:
         self.nodes: Dict[int, 'P2PNode'] = {}
+        self.current_node_id = None
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
         self.start_time = self.current_time
         self.decay_rate = 0.3  # коэффициент затухания вероятности с расстоянием
         self.using_trans_succ_prob = False
         self._setup_logger()
+        self.data_frames = []
         self.transmission_stats = {
             "success": 0,
             "failed_distance": 0,
@@ -50,6 +52,7 @@ class NetworkSimulator:
             raise ValueError(f"Узел с ID {node.node_id} уже существует")
         self.nodes[node.node_id] = node
         self.logger.info(f"Добавлен узел {node.node_id} на позиции ({node.state.position.x:.1f}, {node.state.position.y:.1f})")
+        self.current_node_id = next(iter(self.nodes))
 
     def screenshot(self, observer_id: Optional[int] = None, frame_name: Optional[str] = None) -> str:
         """Визуализация сети с узлами, их соединениями и выделением зоны покрытия"""
@@ -59,19 +62,7 @@ class NetworkSimulator:
 
         plt.figure(figsize=(12, 10))
         
-        # Отображение узлов и их соединений
-        for node_id, node in self.nodes.items():
-            position = node.state.position
-            color = 'red' if node_id == observer_id else 'blue'
-            plt.plot(position.x, position.y, 'o', color=color, markersize=10)
-            plt.text(position.x, position.y, f'{node_id}', color='grey', fontsize=20)
-            
-            # Зона покрытия для наблюдателя
-            if node_id == observer_id:
-                circle = plt.Circle((position.x, position.y), R, color='r', fill=False, linestyle='--')
-                plt.gca().add_patch(circle)
-        
-        # Соединения между узлами
+        # Сначала рисуем все соединения
         connected = set()
         for node1 in self.nodes.values():
             for node2 in self.nodes.values():
@@ -85,6 +76,47 @@ class NetworkSimulator:
                         )
                         connected.add((node1.node_id, node2.node_id))
 
+        # Затем рисуем узлы
+        for node_id, node in self.nodes.items():
+            position = node.state.position
+            
+            # Определяем цвет узла
+            if node_id == observer_id:
+                color = 'red'  # Наблюдаемый узел
+            else:
+                color = 'blue'  # Обычный узел
+            
+            plt.plot(position.x, position.y, 'o', color=color, markersize=10)
+            plt.text(position.x, position.y, f'{node_id}', fontsize=20, color='grey', weight='bold')
+            
+            # Зона покрытия для наблюдателя
+            if node_id == observer_id:
+                circle = plt.Circle((position.x, position.y), R, color='r', fill=False, linestyle='--')
+                plt.gca().add_patch(circle)
+        
+        # Подсвечиваем путь передачи DATA Frame
+        for frame, receiver_id, dest in self.data_frames:
+            if frame.sender_id in self.nodes and receiver_id in self.nodes:
+                sender = self.nodes[frame.sender_id]
+                receiver = self.nodes[dest]
+                plt.plot(
+                    [sender.state.position.x, receiver.state.position.x],
+                    [sender.state.position.y, receiver.state.position.y],
+                    'm-', linewidth=3, alpha=0.9  # Увеличили толщину линии и уменьшили прозрачность
+                )
+                # Добавляем стрелку с увеличенными параметрами
+                plt.annotate('', 
+                    xy=(receiver.state.position.x, receiver.state.position.y),
+                    xytext=(sender.state.position.x, sender.state.position.y),
+                    arrowprops=dict(
+                        arrowstyle='->', 
+                        color='m', 
+                        linewidth=3,  # Увеличили толщину стрелки
+                        alpha=0.9,    # Уменьшили прозрачность
+                        mutation_scale=20  # Увеличили размер стрелки
+                    )
+                )
+        
         title = f"Сеть из {len(self.nodes)} узлов (время симуляции: {(self.current_time - self.start_time).total_seconds():.1f} сек)"
         if observer_id is not None:
             title += f"\nЗона покрытия узла {observer_id} показана красным"
@@ -193,6 +225,9 @@ class NetworkSimulator:
                 # Передаем фрейм целевому узлу
                 self.nodes[receiver_id].receive_frame(frame)
                 processed += 1
+                if frame.type == 'DATA':
+                    self.data_frames = []
+                    self.data_frames += [(frame, receiver_id, frame.destination_id)]
 
                 # Логируем факт доставки (уровень DEBUG)
                 self.logger.debug(
@@ -262,7 +297,11 @@ class NetworkSimulator:
         self.decay_rate = decay_rate
 
     def set_trans_probability_flag(self, use: bool) -> None:
-        print(use)
+        if use:
+            print("Включена вероятность потерь")
+        else:
+            print("Отключена вероятность потерь")
+
         self.using_trans_succ_prob = use
 
     def get_network_stats(self) -> Dict[str, Any]:

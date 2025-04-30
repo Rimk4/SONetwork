@@ -10,7 +10,7 @@ from datetime import timedelta
 from src.logger_filter import LogModule, ModuleFilter
 from src.SimulatorDateTime import SimulatorDateTime as datetime
 from typing import Dict, Tuple, Optional, List
-from src.models import Position, Frame, NodeState, RoutingEntry
+from src.models import Position, Frame, NodeState, RREPFrame, RREQFrame, RoutingEntry
 from src.constants import T_SCAN, T_TIMEOUT, LOG_DIR
 
 class P2PNode(threading.Thread):
@@ -175,7 +175,7 @@ class P2PNode(threading.Thread):
     def _check_delayed_frames(self) -> None:
         """Проверка отложенных фреймов (для которых не было маршрута)"""
         completed = []
-        
+
         for target_id, frames in self.delayed_frames.items():
             if target_id in self.routing_table:
                 # Маршрут появился, отправляем все отложенные фреймы
@@ -183,6 +183,7 @@ class P2PNode(threading.Thread):
                 for frame in frames:
                     if self.network.transmit_frame(frame, self.node_id, next_hop):
                         self.logger.info(f"[COM] Отправлен отложенный фрейм для {target_id}")
+                        self.network.data_frames += [(frame, next_hop, frame.destination_id)]
                 
                 completed.append(target_id)
         
@@ -278,13 +279,14 @@ class P2PNode(threading.Thread):
 
     def _initiate_route_discovery(self, target_id: int) -> None:
         """Инициирование поиска маршрута (AODV-like)"""
-        rreq = Frame.create_rreq(
-            sender_id=self.node_id,
-            target_id=target_id,
-            hop_count=0,
+        # Создание RREQ фрейма
+        rreq = RREQFrame(
+            sender_id=self.node_id,      # ID узла, отправившего запрос
+            source_id=self.node_id,      # ID исходного узла (кто ищет маршрут)
+            target_id=target_id,         # ID целевого узла
             max_hops=self.max_hops
         )
-        
+                
         # Рассылка RREQ всем соседям (узлы находящиеся в области прямой радиовидимости)
         for neighbor_id in self._get_neighbors():
             self.network.transmit_frame(rreq, self.node_id, neighbor_id)
@@ -426,6 +428,7 @@ class P2PNode(threading.Thread):
         # Отправляем подтверждение
         ack = Frame.create_ack(
             sender_id=self.node_id,
+            destination_id=frame.sender_id,
             payload=self.serialize_position()
         )
         self.network.transmit_frame(ack, self.node_id, frame.sender_id)
@@ -435,26 +438,30 @@ class P2PNode(threading.Thread):
 
     def _process_ack(self, frame: Frame) -> None:
         """Обработка ACK фрейма"""
-        # Просто обновляем таблицу маршрутизации
-        self._update_routing_table(frame.sender_id, frame.sender_id, 1.0)
+        if frame.destination_id == self.node_id:
+            # Просто обновляем таблицу маршрутизации
+            self._update_routing_table(frame.sender_id, frame.sender_id, 1.0)
 
     def _process_rreq(self, frame: Frame) -> None:
         """Обработка Route Request (RREQ)"""
         try:
-            payload_dict = json.loads(frame.payload.decode())
+            payload = json.loads(frame.payload.decode())
         except Exception as e:
             self.logger.error(f"Ошибка декодирования payload: {e}")
             return
 
-        target_id = payload_dict['target_id']
-        hop_count = payload_dict['hop_count'] + 1
-        
+        target_id = payload['target_id']
+        source_id = payload['source_id']
+        hop_count = frame.hop_count + 1
+
         # Если мы целевой узел - отправляем RREP
         if target_id == self.node_id:
-            rrep = Frame.create_rrep(
-                sender_id=target_id,
-                target_id=frame.sender_id,
-                hop_count=hop_count
+            # Создание RREP фрейма
+            rrep = RREPFrame(
+                sender_id=self.node_id,      # ID узла, отправившего ответ
+                source_id=source_id,         # ID исходного узла (кому нужен маршрут)
+                target_id=self.node_id,      # ID целевого узла
+                hop_count=hop_count,         # Число прыжков до цели
             )
             
             # Отправляем по обратному маршруту
@@ -466,61 +473,65 @@ class P2PNode(threading.Thread):
             Если есть маршрут к target_id - отправляем в обратную сторону
         """
         if target_id in self.routing_table:
-            rrep = Frame.create_rrep(
-                sender_id=target_id,
-                target_id=self.node_id,
-                hop_count=hop_count + self.routing_table[target_id].metric
+            # Создание RREP фрейма
+            rrep = RREPFrame(
+                sender_id=self.node_id,      # ID узла, отправившего ответ
+                source_id=source_id,         # ID исходного узла (кому нужен маршрут)
+                target_id=target_id,         # ID целевого узла
+                hop_count=hop_count 
+                        + self.routing_table[target_id].metric,  # Число прыжков до цели
             )
             
             self.network.transmit_frame(rrep, self.node_id, frame.sender_id)
             return
         
         # Если превышено максимальное число прыжков - отбрасываем
-        if hop_count >= payload_dict['max_hops']:
+        if hop_count >= payload['max_hops']:
             self.logger.debug(f"[COM] Отброшен RREQ для {target_id} (max_hops достигнут)")
+            print(f"\033[0;31mRREQ\033[0m {self.node_id} max_hops")
             return
         
         # Пересылаем RREQ дальше
-        new_rreq = Frame.create_rreq(
-            sender_id=frame.sender_id,
-            target_id=target_id,
-            hop_count=hop_count,
-            max_hops=payload_dict['max_hops']
-        )
+        new_rreq = frame
         
         # Рассылаем всем соседям
         for neighbor_id in self._get_neighbors():
-            if neighbor_id != frame.sender_id:
+            if neighbor_id != frame.sender_id and neighbor_id != source_id:
+                new_rreq.sender_id = self.node_id
                 self.network.transmit_frame(new_rreq, self.node_id, neighbor_id)
 
     def _process_rrep(self, frame: Frame) -> None:
         """Обработка Route Reply (RREP)"""
         try:
-            payload_dict = json.loads(frame.payload.decode())
+            payload = json.loads(frame.payload.decode())
         except Exception as e:
             self.logger.error(f"Ошибка декодирования payload: {e}")
             return
 
-        hop_count = payload_dict['hop_count']
+        target_id = payload['target_id']
+        source_id = payload['source_id']
+        hop_count = frame.hop_count
         
         # Если мы целевой узел - обновляем таблицу маршрутизации
-        if frame.destination_id == self.node_id:
+        if source_id == self.node_id:
             # Метрика = количеству прыжков
             self._update_routing_table(
+                target_id,
                 frame.sender_id,
-                frame.destination_id,
                 hop_count
             )
             return
         
         # Пересылаем RREP дальше по маршруту
-        if frame.destination_id in self.routing_table:
-            next_hop = self.routing_table[frame.destination_id].next_hop
+        if source_id in self.routing_table:
+            next_hop = self.routing_table[source_id].next_hop
             
             # Обновляем метрику (увеличиваем на 1 прыжок)
-            new_rrep = Frame.create_rrep(
-                sender_id=self.node_id,
-                target_id=frame.destination_id,
+            # Создание RREP фрейма
+            new_rrep = RREPFrame(
+                sender_id=self.node_id,      # ID узла, отправившего ответ
+                source_id=source_id,         # ID исходного узла (кому нужен маршрут)
+                target_id=target_id,         # ID целевого узла
                 hop_count=hop_count + 1
             )
             
@@ -528,8 +539,8 @@ class P2PNode(threading.Thread):
             
             # Обновляем свою таблицу маршрутизации
             self._update_routing_table(
+                target_id,
                 frame.sender_id,
-                frame.destination_id,
                 hop_count
             )
 
