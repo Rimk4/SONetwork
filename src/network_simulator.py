@@ -18,6 +18,7 @@ class NetworkSimulator:
 
     def __init__(self) -> None:
         self.nodes: Dict[int, 'P2PNode'] = {}
+        self.current_node_id = None
         self.frame_queue = queue.PriorityQueue()
         self.current_time = datetime.now()
         self.start_time = self.current_time
@@ -51,6 +52,7 @@ class NetworkSimulator:
             raise ValueError(f"Узел с ID {node.node_id} уже существует")
         self.nodes[node.node_id] = node
         self.logger.info(f"Добавлен узел {node.node_id} на позиции ({node.state.position.x:.1f}, {node.state.position.y:.1f})")
+        self.current_node_id = next(iter(self.nodes))
 
     def screenshot(self, observer_id: Optional[int] = None, frame_name: Optional[str] = None) -> str:
         """Визуализация сети с узлами, их соединениями и выделением зоны покрытия"""

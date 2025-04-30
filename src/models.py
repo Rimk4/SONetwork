@@ -5,6 +5,7 @@ import math
 import json
 import struct
 import zlib
+from abc import ABC, abstractmethod
 
 @dataclass
 class Position:
@@ -59,16 +60,8 @@ class RoutingEntry:
         """Оставшееся время жизни записи в секундах"""
         return (self.expire_time - datetime.now()).total_seconds()
 
-class Frame:
-    """Класс для представления сетевого фрейма"""
-    
-    # Поддерживаемые типы фреймов
-    BEACON = 'BEACON'    # Фрейм для обнаружения соседей
-    ACK = 'ACK'          # Подтверждение получения
-    RREQ = 'RREQ'        # Запрос маршрута (Route Request)
-    RREP = 'RREP'        # Ответ маршрута (Route Reply)
-    DATA = 'DATA'        # Пользовательские данные
-    ERROR = 'ERROR'      # Фрейм ошибки
+class BaseFrame(ABC):
+    """Абстрактный базовый класс для всех типов фреймов"""
     
     def __init__(
         self,
@@ -77,6 +70,8 @@ class Frame:
         destination_id: Optional[int] = None,
         payload: bytes = b'',
         ttl: int = 10,
+        hop_count: int = 0,
+        timestamp: Optional[datetime] = None,
         **kwargs
     ) -> None:
         self.type = frame_type
@@ -84,19 +79,17 @@ class Frame:
         self.destination_id = destination_id
         self.payload = payload
         self.ttl = ttl                  # Time To Live (макс. число прыжков)
-        self.hop_count = 0              # Текущее число прыжков
-        self.timestamp = datetime.now()
+        self.hop_count = hop_count      # Текущее число прыжков
+        self.timestamp = timestamp or datetime.now()
         self.metadata = kwargs          # Дополнительные метаданные
-        
-        # Автоматически вычисляем CRC при создании
-        self.crc = self._calculate_crc()
+        self.crc = self._calculate_crc() # Контрольная сумма
     
     def __str__(self) -> str:
         return (f"Frame(type={self.type}, sender={self.sender_id}, "
                 f"dest={self.destination_id}, hops={self.hop_count}, "
                 f"size={len(self.payload)} bytes)")
     
-    def __lt__(self, other: 'Frame') -> bool:
+    def __lt__(self, other: 'BaseFrame') -> bool:
         """Сравнение для приоритетной очереди"""
         return self.timestamp < other.timestamp
     
@@ -118,6 +111,26 @@ class Frame:
         """Увеличение счетчика прыжков и проверка TTL"""
         self.hop_count += 1
         return self.hop_count < self.ttl
+    
+    @abstractmethod
+    def serialize(self) -> bytes:
+        """Сериализация фрейма для передачи по сети"""
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def deserialize(cls, data: bytes) -> 'BaseFrame':
+        """Десериализация фрейма из bytes"""
+        pass
+
+class Frame(BaseFrame):
+    """Класс для представления стандартных сетевых фреймов"""
+    
+    # Поддерживаемые типы фреймов
+    BEACON = 'BEACON'    # Фрейм для обнаружения соседей
+    ACK = 'ACK'          # Подтверждение получения
+    DATA = 'DATA'        # Пользовательские данные
+    ERROR = 'ERROR'      # Фрейм ошибки
     
     def serialize(self) -> bytes:
         """Сериализация фрейма для передачи по сети"""
@@ -165,55 +178,15 @@ class Frame:
         except Exception as e:
             raise ValueError(f"Ошибка десериализации фрейма: {str(e)}")
     
-    # Фабричные методы для создания стандартных фреймов
     @classmethod
     def create_beacon(cls, sender_id: int, payload: bytes = b'') -> 'Frame':
         """Создание BEACON фрейма"""
         return cls(cls.BEACON, sender_id, payload=payload)
     
     @classmethod
-    def create_ack(cls, sender_id: int, payload: bytes = b'') -> 'Frame':
+    def create_ack(cls, sender_id: int, destination_id: int, payload: bytes = b'') -> 'Frame':
         """Создание ACK фрейма"""
-        return cls(cls.ACK, sender_id, payload=payload)
-    
-    @classmethod
-    def create_rreq(
-        cls,
-        sender_id: int,
-        target_id: int,
-        hop_count: int = 0,
-        max_hops: int = 7
-    ) -> 'Frame':
-        """Создание Route Request (RREQ) фрейма"""
-        return cls(
-            cls.RREQ,
-            sender_id,
-            payload=json.dumps({
-                'target_id': target_id,
-                'hop_count': hop_count,
-                'max_hops': max_hops
-            }).encode(),
-            ttl=max_hops
-        )
-    
-    @classmethod
-    def create_rrep(
-        cls,
-        sender_id: int,
-        target_id: int,
-        hop_count: int,
-        route_metric: float = 1.0
-    ) -> 'Frame':
-        """Создание Route Reply (RREP) фрейма"""
-        return cls(
-            cls.RREP,
-            sender_id,
-            destination_id=target_id,
-            payload=json.dumps({
-                'hop_count': hop_count,
-                'metric': route_metric
-            }).encode()
-        )
+        return cls(cls.ACK, sender_id, destination_id=destination_id, payload=payload)
     
     @classmethod
     def create_data(
@@ -249,3 +222,163 @@ class Frame:
                 'message': error_msg
             }).encode()
         )
+
+class RREQFrame(BaseFrame):
+    """Класс для фрейма запроса маршрута (Route Request)"""
+    TYPE = 'RREQ'
+    
+    def __init__(
+        self,
+        sender_id: int,
+        source_id: int,
+        target_id: int,
+        hop_count: int = 0,
+        max_hops: int = 7,
+        **kwargs
+    ):
+        payload = json.dumps({
+            'source_id': source_id,
+            'target_id': target_id,
+            'max_hops': max_hops
+        }).encode()
+        
+        super().__init__(
+            frame_type=self.TYPE,
+            sender_id=sender_id,
+            payload=payload,
+            ttl=max_hops,
+            hop_count=hop_count,
+            **kwargs
+        )
+        
+        self.source_id = source_id
+        self.target_id = target_id
+        self.max_hops = max_hops
+    
+    def serialize(self) -> bytes:
+        metadata = json.dumps(self.metadata).encode() if self.metadata else b''
+        header = struct.pack(
+            '!8siiiiiii',
+            self.type.encode('ascii'),
+            self.sender_id,
+            self.source_id,
+            self.target_id,
+            self.ttl,
+            self.hop_count,
+            int(self.timestamp.timestamp()),
+            len(metadata)
+        )
+        return header + metadata + self.payload
+    
+    @classmethod
+    def deserialize(cls, data: bytes) -> 'RREQFrame':
+        try:
+            header = data[:44]
+            type_, sender_id, source_id, target_id, ttl, hop_count, timestamp, meta_len = struct.unpack('!8siiiiii', header)
+            
+            frame_type = type_.decode('ascii').strip('\x00')
+            if frame_type != cls.TYPE:
+                raise ValueError(f"Ожидался тип фрейма {cls.TYPE}, получен {frame_type}")
+            
+            timestamp = datetime.fromtimestamp(timestamp)
+            
+            metadata = {}
+            if meta_len > 0:
+                meta_data = data[44:44+meta_len]
+                metadata = json.loads(meta_data.decode())
+            
+            payload = data[44+meta_len:]
+            payload_data = json.loads(payload.decode())
+            
+            return cls(
+                sender_id=sender_id,
+                source_id=source_id,
+                target_id=target_id,
+                hop_count=hop_count,
+                max_hops=ttl,
+                timestamp=timestamp,
+                **metadata
+            )
+        except Exception as e:
+            raise ValueError(f"Ошибка десериализации RREQ фрейма: {str(e)}")
+
+class RREPFrame(BaseFrame):
+    """Класс для фрейма ответа маршрута (Route Reply)"""
+    TYPE = 'RREP'
+    
+    def __init__(
+        self,
+        sender_id: int,
+        source_id: int,
+        target_id: int,
+        hop_count: int = 0,
+        route_metric: float = 1.0,
+        max_hops: int = 7,
+        **kwargs
+    ):
+        payload = json.dumps({
+            'source_id': source_id,
+            'target_id': target_id,
+            'metric': route_metric,
+            'max_hops': max_hops
+        }).encode()
+        
+        super().__init__(
+            frame_type=self.TYPE,
+            sender_id=sender_id,
+            destination_id=target_id,
+            hop_count=hop_count,
+            payload=payload,
+            **kwargs
+        )
+        
+        self.source_id = source_id
+        self.target_id = target_id
+        self.route_metric = route_metric
+    
+    def serialize(self) -> bytes:
+        metadata = json.dumps(self.metadata).encode() if self.metadata else b''
+        header = struct.pack(
+            '!8siiiiiii',
+            self.type.encode('ascii'),
+            self.sender_id,
+            self.source_id,
+            self.target_id,
+            self.ttl,
+            self.hop_count,
+            int(self.timestamp.timestamp()),
+            len(metadata)
+        )
+        return header + metadata + self.payload
+    
+    @classmethod
+    def deserialize(cls, data: bytes) -> 'RREPFrame':
+        try:
+            header = data[:44]
+            type_, sender_id, source_id, target_id, ttl, hop_count, timestamp, meta_len = struct.unpack('!8siiiiii', header)
+            
+            frame_type = type_.decode('ascii').strip('\x00')
+            if frame_type != cls.TYPE:
+                raise ValueError(f"Ожидался тип фрейма {cls.TYPE}, получен {frame_type}")
+            
+            timestamp = datetime.fromtimestamp(timestamp)
+            
+            metadata = {}
+            if meta_len > 0:
+                meta_data = data[44:44+meta_len]
+                metadata = json.loads(meta_data.decode())
+            
+            payload = data[44+meta_len:]
+            payload_data = json.loads(payload.decode())
+            
+            return cls(
+                sender_id=sender_id,
+                source_id=source_id,
+                target_id=target_id,
+                hop_count=hop_count,
+                route_metric=payload_data['metric'],
+                timestamp=timestamp,
+                **metadata
+            )
+        except Exception as e:
+            raise ValueError(f"Ошибка десериализации RREP фрейма: {str(e)}")
