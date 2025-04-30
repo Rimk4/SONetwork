@@ -289,13 +289,16 @@ class P2PGUI:
             with dpg.child_window(width=-1, height=-1, pos=[350, 20]):
                 with dpg.tab_bar():
                     with dpg.tab(label=self.t("console"), tag="console_tab"):
-                        dpg.add_input_text(
-                            multiline=True,
-                            readonly=True,
+                        with dpg.child_window(
+                            tag="console_child",
                             width=-1,
                             height=400,
-                            tag="console",
-                        )
+                            autosize_x=True,
+                            autosize_y=False,
+                            border=True,
+                            horizontal_scrollbar=False
+                        ):
+                            dpg.add_text("", tag="console")
 
                     with dpg.tab(label=self.t("topology"), tag="topology_tab"):
                         dpg.add_image(
@@ -379,6 +382,8 @@ class P2PGUI:
     def update_console(self, message):
         self.console_text += message + "\n"
         dpg.set_value("console", self.console_text)
+
+        dpg.set_y_scroll("console_child", dpg.get_y_scroll_max("console_child"))
 
     def update_log_display(self):
         try:
