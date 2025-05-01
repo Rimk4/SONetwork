@@ -6,7 +6,10 @@ import dearpygui.dearpygui as dpg
 import os
 from src.p2p_node import P2PNode
 from src.models import Position
+from src.SimulatorDateTime import SimulatorDateTime as datetime
 import numpy as np
+
+
 class NetworkThread:
     def __init__(self, network):
         self.network = network
@@ -62,9 +65,11 @@ class P2PGUI:
         self.current_node_id = next(iter(network.nodes)) if network.nodes else None
         self.console_text = ""
         self.recording = False
-        self.language = "en"
+        self.language = "ru"
         self.last_update_time = 0
         self.last_log_update_time = 0
+        self.last_info_update_time = 0
+        self.last_routing_update_time = 0
         self.log_watcher = LogWatcher(self)
         self.current_log_content = ""
         self.texture_data = None
@@ -81,12 +86,16 @@ class P2PGUI:
                 "nodes": "Nodes:",
                 "new_node_params": "New Node Parameters:",
                 "node_id": "Node ID",
+                "destination": "Destination",
+                "next_hop": "Next Hop",
+                "metric": "Metric",
                 "velocity": "Velocity [m/s]",
                 "direction": "Direction [°]",
                 "bitrate": "Bitrate",
                 "add_node": "Add Node",
                 "kill_node": "Kill Node",
                 "position_control": "Position Control:",
+                "position": "Position",
                 "x_pos": "X",
                 "y_pos": "Y",
                 "move_node": "Move Node",
@@ -117,6 +126,12 @@ class P2PGUI:
                 "recording_stopped": "Recording stopped",
                 "config_saved": "Configuration saved to: {}",
                 "language": "Language",
+                "routing_tables": "Routing Tables",
+                "expires_in": "Expires In",
+                "node_info": "Nodes Info",
+                "known_nodes": "Known nodes",
+                "routing_info": "Routes in routing table",
+                "delayed_frames": "Delayed frames",
                 "node_logs": "Node Logs",
                 "no_log_file": "No log file for node {}",
                 "log_update_error": "Error updating logs: {}",
@@ -130,12 +145,16 @@ class P2PGUI:
                 "nodes": "Узлы:",
                 "new_node_params": "Параметры нового узла:",
                 "node_id": "ID узла",
+                "destination": "Назначение",
+                "next_hop": "След. прыжок",
+                "metric": "Метрика",
                 "velocity": "Скорость [м/с]",
                 "direction": "Направление [°]",
                 "bitrate": "Битрейт",
                 "add_node": "Добавить узел",
                 "kill_node": "Удалить узел",
                 "position_control": "Управление позицией:",
+                "position": "Позиция",
                 "x_pos": "X",
                 "y_pos": "Y",
                 "move_node": "Переместить узел",
@@ -166,6 +185,12 @@ class P2PGUI:
                 "recording_stopped": "Запись остановлена",
                 "config_saved": "Конфигурация сохранена в: {}",
                 "language": "Язык",
+                "routing_tables": "Таблицы маршрутизации",
+                "expires_in": "Истекает через",
+                "node_info": "Информация об узлах",
+                "known_nodes": "Известные узлы",
+                "routing_info": "Маршрутов в таблице",
+                "delayed_frames": "Отложенных фреймов",
                 "node_logs": "Логи узла",
                 "no_log_file": "Нет файла лога для узла {}",
                 "log_update_error": "Ошибка обновления логов: {}",
@@ -289,13 +314,16 @@ class P2PGUI:
             with dpg.child_window(width=-1, height=-1, pos=[350, 20]):
                 with dpg.tab_bar():
                     with dpg.tab(label=self.t("console"), tag="console_tab"):
-                        dpg.add_input_text(
-                            multiline=True,
-                            readonly=True,
+                        with dpg.child_window(
+                            tag="console_child",
                             width=-1,
                             height=400,
-                            tag="console",
-                        )
+                            autosize_x=True,
+                            autosize_y=False,
+                            border=True,
+                            horizontal_scrollbar=False
+                        ):
+                            dpg.add_text("", tag="console")
 
                     with dpg.tab(label=self.t("topology"), tag="topology_tab"):
                         dpg.add_image(
@@ -314,7 +342,48 @@ class P2PGUI:
                             height=400,
                             tag="node_logs_display",
                         )
-
+                    
+                    with dpg.tab(label=self.t("node_info"), tag="node_info_tab"):
+                        with dpg.table(
+                            header_row=True,
+                            borders_innerH=True,
+                            borders_outerH=True,
+                            borders_innerV=True,
+                            borders_outerV=True,
+                            row_background=True,
+                            policy=dpg.mvTable_SizingFixedFit,
+                            tag="node_info_table",
+                            width=-1,
+                            height=400
+                        ):
+                            dpg.add_table_column(label=self.t("node_id"), width_fixed=True, tag="node_id_column")
+                            dpg.add_table_column(label=self.t("position"), tag="position_column")
+                            dpg.add_table_column(label=self.t("velocity"), tag="velocity_column")
+                            dpg.add_table_column(label=self.t("direction"), tag="direction_column")
+                            dpg.add_table_column(label=self.t("bitrate"), tag="bitrate_column")
+                            dpg.add_table_column(label=self.t("known_nodes"), tag="known_nodes_column")
+                            dpg.add_table_column(label=self.t("routing_info"), tag="routing_info_column")
+                            dpg.add_table_column(label=self.t("delayed_frames"), tag="delayed_frames_column")
+                    
+                    with dpg.tab(label=self.t("routing_tables"), tag="routing_tables_tab"):
+                        with dpg.table(
+                            header_row=True,
+                            borders_innerH=True,
+                            borders_outerH=True,
+                            borders_innerV=True,
+                            borders_outerV=True,
+                            row_background=True,
+                            policy=dpg.mvTable_SizingFixedFit,
+                            tag="routing_tables_table",
+                            width=-1,
+                            height=-1
+                        ):
+                            dpg.add_table_column(label=self.t("node_id"), width_fixed=True, tag="routing_node_id_column")
+                            dpg.add_table_column(label=self.t("destination"), tag="destination_column")
+                            dpg.add_table_column(label=self.t("next_hop"), tag="next_hop_column")
+                            dpg.add_table_column(label=self.t("metric"), tag="metric_column")
+                            dpg.add_table_column(label=self.t("expires_in"), tag="expires_in_column")
+                
                 dpg.add_input_text(
                     label=self.t("command_input"), on_enter=True, callback=self.execute_command, tag="command_input"
                 )
@@ -360,6 +429,19 @@ class P2PGUI:
         dpg.set_item_label("topology_tab", self.t("topology"))
         dpg.set_value("topology_text", self.t("network_topology"))
         dpg.set_item_label("nodes_tab", self.t("node_logs"))
+        dpg.set_item_label("node_info_tab", self.t("node_info"))
+        dpg.configure_item("node_id_column", label=self.t("node_id"))
+        dpg.configure_item("position_column", label=self.t("position"))
+        dpg.configure_item("velocity_column", label=self.t("velocity"))
+        dpg.configure_item("direction_column", label=self.t("direction"))
+        dpg.configure_item("bitrate_column", label=self.t("bitrate"))
+        dpg.configure_item("known_nodes_column", label=self.t("known_nodes"))
+        dpg.configure_item("routing_info_column", label=self.t("routing_info"))
+        dpg.configure_item("delayed_frames_column", label=self.t("delayed_frames"))
+        dpg.configure_item("routing_node_id_column", label=self.t("node_id"))
+        dpg.configure_item("destination_column", label=self.t("destination"))
+        dpg.configure_item("next_hop_column", label=self.t("next_hop"))
+        dpg.configure_item("metric_column", label=self.t("metric"))
         dpg.configure_item("command_input", label=self.t("command_input"))
         dpg.configure_item("screenshot", label=self.t("screenshot"))
         dpg.configure_item("record_button", label=self.t("stop_recording" if self.recording else "start_recording"))
@@ -380,6 +462,8 @@ class P2PGUI:
         self.console_text += message + "\n"
         dpg.set_value("console", self.console_text)
 
+        dpg.set_y_scroll("console_child", dpg.get_y_scroll_max("console_child"))
+
     def update_log_display(self):
         try:
             # Проверяем очередь на наличие новых логов
@@ -390,6 +474,70 @@ class P2PGUI:
                     dpg.set_value("node_logs_display", self.current_log_content)
         except Empty:
             pass
+
+    def update_node_info(self):
+        """Обновляет информацию о всех узлах в таблице"""
+        current_time = time.time()
+        
+        if current_time - self.last_info_update_time >= 2.0:
+            try:
+                # Очищаем таблицу (кроме заголовков)
+                children = dpg.get_item_children("node_info_table", 1)
+                for child in children:  # Пропускаем первый элемент (заголовки)
+                    dpg.delete_item(child)
+                
+                # Заполняем таблицу данными
+                for node_id in sorted(self.network.nodes.keys()):
+                    node = self.network.nodes[node_id]
+                    with dpg.table_row(parent="node_info_table"):
+                        # Основная информация о узле
+                        dpg.add_text(f"Node {node_id}")
+                        dpg.add_text(f"({node.state.position.x:.1f}, {node.state.position.y:.1f})")
+                        dpg.add_text(f"{node.state.velocity:.1f} m/s")
+                        dpg.add_text(f"{node.state.direction:.1f}°")
+                        dpg.add_text(f"{node.bitrate} bps")
+                        dpg.add_text(f"{len(node.local_map)}")
+                        dpg.add_text(f"{len(node.routing_table)}")
+                        dpg.add_text(f"{sum(len(f) for f in node.delayed_frames.values())}")
+                
+                self.last_info_update_time = current_time
+            except Exception as e:
+                self.update_console(f"Error updating node info table: {str(e)}")
+
+    def update_routing_tables(self):
+        """Обновляет таблицы маршрутизации всех узлов"""
+        current_time = time.time()
+        
+        if current_time - self.last_routing_update_time >= 2.0:  # Обновляем каждые 2 секунды
+            try:
+                # Очищаем таблицу (кроме заголовков)
+                children = dpg.get_item_children("routing_tables_table", 1)
+                for child in children:  # Пропускаем первый элемент (заголовки)
+                    dpg.delete_item(child)
+                
+                # Заполняем таблицу данными
+                for node_id in sorted(self.network.nodes.keys()):
+                    node = self.network.nodes[node_id]
+                    routing_table = node.routing_table.items()
+                    for node_id_dest, entry in routing_table:
+                        expires_in = (entry.expire_time - datetime.now()).total_seconds()
+                        route = dict({
+                            'destination': node_id_dest,
+                            'next_hop': entry.next_hop,
+                            'metric': entry.metric,
+                            'expires_in': expires_in,
+                            })
+
+                        with dpg.table_row(parent="routing_tables_table"):
+                            dpg.add_text(f"Node {node_id}")
+                            dpg.add_text(str(route['destination']))
+                            dpg.add_text(str(route['next_hop']))
+                            dpg.add_text(str(route['metric']))
+                            dpg.add_text(str(route['expires_in']))
+                
+                self.last_routing_update_time = current_time
+            except Exception as e:
+                self.update_console(f"Error updating routing tables: {str(e)}")
 
     def run(self):
         dpg.create_viewport(
@@ -415,6 +563,9 @@ class P2PGUI:
             if current_time - self.last_log_update_time >= 0.5:
                 self.update_log_display()
                 self.last_log_update_time = current_time
+            
+            self.update_node_info()
+            self.update_routing_tables()
                 
             self.network_thread.process_events()
             dpg.render_dearpygui_frame()
