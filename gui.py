@@ -512,7 +512,7 @@ class P2PGUI:
             try:
                 # Очищаем таблицу (кроме заголовков)
                 children = dpg.get_item_children("routing_tables_table", 1)
-                for child in children[1:]:  # Пропускаем первый элемент (заголовки)
+                for child in children:  # Пропускаем первый элемент (заголовки)
                     dpg.delete_item(child)
                 
                 # Заполняем таблицу данными
