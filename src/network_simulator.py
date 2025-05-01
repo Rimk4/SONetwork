@@ -51,7 +51,7 @@ class NetworkSimulator:
         if node.node_id in self.nodes:
             raise ValueError(f"Узел с ID {node.node_id} уже существует")
         self.nodes[node.node_id] = node
-        self.logger.info(f"Добавлен узел {node.node_id} на позиции ({node.state.position.x:.1f}, {node.state.position.y:.1f})")
+        self.logger.info(f"[NETWORK] Добавлен узел {node.node_id} на позиции ({node.state.position.x:.1f}, {node.state.position.y:.1f})")
         self.current_node_id = next(iter(self.nodes))
 
     def screenshot(self, observer_id: Optional[int] = None, frame_name: Optional[str] = None) -> str:
@@ -143,7 +143,7 @@ class NetworkSimulator:
         
         # Проверка существования узлов
         if sender_id not in self.nodes or receiver_id not in self.nodes:
-            self.logger.warning(f"Попытка передачи между несуществующими узлами: {sender_id}->{receiver_id}")
+            self.logger.warning(f"[BROADCAST] Попытка передачи между несуществующими узлами: {sender_id}->{receiver_id}")
             return False
 
         sender = self.nodes[sender_id]
@@ -152,7 +152,7 @@ class NetworkSimulator:
         # Проверка расстояния
         distance = sender.state.position.distance_to(receiver.state.position)
         if distance > R:
-            self.logger.debug(f"Узел {receiver_id} вне зоны покрытия (расстояние {distance:.1f} м > {R} м)")
+            self.logger.debug(f"[BROADCAST] Узел {receiver_id} вне зоны покрытия (расстояние {distance:.1f} м > {R} м)")
             self.transmission_stats["failed_distance"] += 1
             return False
 
@@ -161,7 +161,7 @@ class NetworkSimulator:
             success_prob = self._calculate_transmission_probability(distance, sender.bitrate, frame)
             if random.random() > success_prob:
                 self.transmission_stats["failed_transmission"] += 1
-                sender.logger.debug(f"Фрейм потерян из-за ошибки передачи (вероятность успеха {success_prob:.2f})")
+                self.logger.debug(f"[BROADCAST] Фрейм потерян из-за ошибки передачи (вероятность успеха {success_prob:.2f})")
                 return False
 
         # Расчет времени доставки
@@ -172,7 +172,7 @@ class NetworkSimulator:
         self.frame_queue.put((delivery_time, frame, receiver_id))
         self.transmission_stats["success"] += 1
         
-        sender.logger.info(f"Фрейм {frame.type} к {receiver_id} запланирован на {delivery_time.strftime('%H:%M:%S.%f')}")
+        self.logger.info(f"[QUEUE] Фрейм {frame.type} от {sender} к {receiver_id} запланирован на {delivery_time.strftime('%H:%M:%S.%f')}")
         return True
 
     def _calculate_transmission_probability(self, distance: float, bitrate: int, frame: Frame) -> float:
@@ -231,16 +231,16 @@ class NetworkSimulator:
 
                 # Логируем факт доставки (уровень DEBUG)
                 self.logger.debug(
-                    f"Фрейм {frame.type} доставлен узлу {receiver_id}"
+                    f"[BROADCAST] Фрейм {frame.type} доставлен узлу {receiver_id}"
                 )
         
         if processed > 0:
-            self.logger.debug(f"Обработано {processed} фреймов")
+            self.logger.debug(f"[BROADCAST] Обработано {processed} фреймов")
 
     def remove_node(self, node_id: int) -> bool:
         """Удаление узла с очисткой связанных фреймов"""
         if node_id not in self.nodes:
-            self.logger.warning(f"Попытка удалить несуществующий узел {node_id}")
+            self.logger.warning(f"[NETWORK] Попытка удалить несуществующий узел {node_id}")
             return False
             
         try:
@@ -259,13 +259,13 @@ class NetworkSimulator:
             del self.nodes[node_id]
             
             self.logger.info(
-                f"Узел {node_id} удален. Удалено фреймов: {removed_frames}. "
+                f"[NETWORK] Узел {node_id} удален. Удалено фреймов: {removed_frames}. "
                 f"Осталось узлов: {len(self.nodes)}"
             )
             return True
             
         except Exception as e:
-            self.logger.error(f"Ошибка удаления узла {node_id}: {str(e)}")
+            self.logger.error(f"[NETWORK] Ошибка удаления узла {node_id}: {str(e)}")
             return False
 
     def kill_node(self, node_id: int) -> None:
@@ -285,12 +285,12 @@ class NetworkSimulator:
     
     def move_node(self, node_id: int, position: Position):
         if node_id not in self.nodes:
-            self.logger.info("Узел с таким ID не найден")
+            self.logger.info("[NETWORK] Узел с таким ID не найден")
             return
             
         node = self.nodes[node_id]
         node.state.position = position
-        self.logger.info(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
+        self.logger.info(f"[NETWORK] Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
         print(f"Узел {node_id} перемещен в ({position.x:.1f}, {position.y:.1f})")
 
     def set_decay_rate(self, decay_rate: float) -> None:
@@ -368,7 +368,7 @@ class NetworkSimulator:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
             
-        self.logger.info(f"Конфигурация сохранена в {filepath}")
+        self.logger.info(f"[CONFIG] Конфигурация сохранена в {filepath}")
         return str(filepath)
 
     @classmethod
@@ -402,7 +402,7 @@ class NetworkSimulator:
             return simulator
             
         except Exception as e:
-            logging.error(f"Ошибка загрузки конфигурации сети: {str(e)}")
+            logging.error(f"[CONFIG] Ошибка загрузки конфигурации сети: {str(e)}")
             return None
 
     def restore_nodes_from_config(self, config_file: str, node_creator: callable) -> bool:
@@ -415,9 +415,9 @@ class NetworkSimulator:
                 node = node_creator(int(node_id), node_config)
                 self.add_node(node)
             
-            self.logger.info(f"Восстановлено {len(config['nodes'])} узлов из конфигурации")
+            self.logger.info(f"[CONFIG] Восстановлено {len(config['nodes'])} узлов из конфигурации")
             return True
             
         except Exception as e:
-            self.logger.error(f"Ошибка восстановления узлов: {str(e)}")
+            self.logger.error(f"[CONFIG] Ошибка восстановления узлов: {str(e)}")
             return False
